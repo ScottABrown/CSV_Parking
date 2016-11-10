@@ -1,0 +1,377 @@
+
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+
+<head>
+  <style>
+
+    body {
+      color: #1f3838;
+      background-color: #fffafa;
+      font-family: Arial, Helvetica, sans-serif;
+      }
+
+    .container {
+      margin: 50px 24px;
+      padding: 10px;
+      }
+
+    #menus {
+      font-size: 12px;
+      margin: 10px 20px;
+      }
+
+    #menus span, #menus span{
+      display: inline-block;
+      text-align: left;
+      width: 68px;
+      }
+
+    #playground {
+      /*border: 1px solid gray;*/
+      }
+
+    </style>
+
+  </head>
+
+<body>
+
+  <div class="container">
+
+    <div id='menus'>
+      <table>
+
+        <tr>
+          <th class="menu-field"><span>Field</span></th>
+          <th class="menu-min"><span>From</span></th>
+          <th class="menu-max"><span>To</span></th>
+          <th class="menu-sort"><span>Sort</span></th>
+          </tr>
+
+        <tr class="menus-name">
+          <td class="menu-field"><span>Name</span></td>
+          <td class="menu-min"><span><select></select></span></td>
+          <td class="menu-max"><span><select></select></span></td>
+          <td class="menu-sort"><span><select>
+            <option></option>
+            <option>Ascending</option>
+            <option>Descending</option>
+            </select></span>
+            </td>
+          </tr>
+
+        <tr class="menus-age">
+          <td class="menu-field"><span>Age</span></td>
+          <td class="menu-min"><span><select></select></span></td>
+          <td class="menu-max"><span><select></select></span></td>
+          <td class="menu-sort"><span><select>
+            <option></option>
+            <option>Ascending</option>
+            <option>Descending</option>
+            </select></span>
+            </td>
+          </tr>
+
+        </table>
+      </div>
+
+    <svg id='playground'></svg>
+
+    </div>  <!-- /container -->
+
+  <script src="//d3js.org/d3.v4.min.js"></script>
+
+<!-- - - - - - - - - - - - - - - BEGIN SCRIPT - - - - - - - - - - - - - - -->
+
+<script>
+
+  // Create a triangle "button" centered horizontally at x and
+  // vertically at y with width and height both 6 pixels.
+  // function sortButton(container, x, y, direction){
+
+  //   var buttonData = [
+  //     {"x": x - 3, "y": y + 3},
+  //     {"x": x + 3, "y": y + 3},
+  //     {"x": x, "y": y - 3},
+  //     {"x": x - 3, "y": y + 3},
+  //     ];
+
+  //   var buttonFunction = d3.svg.line()
+  //     .x(function(d) { return d.x; })
+  //     .y(function(d) { return d.y; })
+  //     .interpolate("linear");
+
+  //   var button = container.append("path")
+  //     .attr("d", buttonFunction(buttonData))
+  //     .attr("stroke", "#006680")
+  //     .attr("stroke-width", 0)
+  //     .attr("fill", "#003370");
+
+  //   if (direction == 'down') {
+  //     button.attr("transform", "rotate(180, " + x + ", " + y + ")");
+  //     }
+  //   }
+
+  // Playground dimensions.
+  var SVG_MARGINS = {'top': 40, 'right': 20, 'bottom': 20, 'left': 30};
+  var SVG_SIZE = {
+    'width': 800,
+    'height': 600  - SVG_MARGINS.top - SVG_MARGINS.bottom
+    };
+
+  // Sample data.
+  WHODATA = [
+    {'name': 'Elsa', 'age': 20},
+    {'name': 'Dan', 'age': 42},
+    {'name': 'Carol', 'age': 42},
+    {'name': 'Alice', 'age': 42},
+    {'name': 'Bob', 'age': 20},
+    {'name': 'Fred', 'age': 31},
+    ];
+
+  // We'll populate this in populateMenus() with an array of selectors
+  // by name.
+  var SELECTORS = {};
+
+  // The vertical height of each bar.
+  var BAR_HEIGHT = '20px';
+
+  // Set the range max when we know the data max
+  var BAR_WIDTH = d3.scaleLinear()
+      .domain([1, 80])
+      .range(
+        [
+          SVG_MARGINS.left,
+          SVG_SIZE.width - SVG_MARGINS.left - SVG_MARGINS.right
+          ]
+        );
+
+  // Bars distribute down the vertical axis, starting past the margin.
+  // We have to populate the range and domain once we filter the data
+  // to be displayed for a given menu selection.
+  var BAR_Y = d3.scalePoint();
+
+  // - - - - - - - - - - - - - - - - - - - - - - - -
+  // Initial rendering.
+  // - - - - - - - - - - - - - - - - - - - - - - - -
+
+  var PLAYGROUND = d3.select('#playground')
+      .attr('width', SVG_SIZE.width)
+      .attr('height', SVG_SIZE.height);
+      // .style('border', '1px solid gray');
+
+  populateMenus();
+  redraw();
+
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Redraw the dynamic elements.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function redraw() {
+
+    var currentData = sortedDataset(filteredDataset(WHODATA));
+    var currentNames = currentData.map(function(o){return o.name});
+
+    // Bars distribute down the vertical axis, starting past the margin.
+    BAR_Y.rangeRound(
+        [SVG_MARGINS.top, SVG_MARGINS.top + 26 * (currentNames.length - 1)]
+        )
+        .domain(currentNames)
+        .padding(0);
+
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+
+    t = d3.transition()
+        .duration(800)
+
+    var whoUpdate = PLAYGROUND
+      .selectAll(".who-graphic")
+        .data(currentData, function(d) {return d.name;});
+
+    var whoEnter = whoUpdate.enter()
+      .append("g")
+        .attr("class", "who-graphic")
+        .attr("transform", function(d, i) {
+          console.log("ENTERING " + d.name + " TO " + SVG_MARGINS.left + ", " + BAR_Y(0));
+          return 'translate(' + SVG_MARGINS.left + "," + BAR_Y(d.name) + ")";
+          })
+        .style('fill-opacity', 0);
+
+    whoEnter.append("rect")
+        .attr("class", "who-bar")
+        .attr("width", function(d) {return BAR_WIDTH(d.age);})
+        .attr("height", BAR_HEIGHT)
+        .style('fill', '#494');
+
+    whoEnter.append("text")
+        .attr("class", "name")
+        .attr("dx", "6px")
+        .attr("dy", "16px")
+        .attr("text-anchor", "start")
+        .style("font-size", "14")
+        .style("font-family", "sans-serif")
+        .style("fill", "#fff")
+        .text(function(d){return d.name;});
+
+    whoEnter.append("text")
+        .attr("class", "height")
+        .attr("x", function(d) {return BAR_WIDTH(d.age) - 3;})
+        .attr("dx", "-2px")
+        .attr("dy", "16px")
+        .attr("text-anchor", "end")
+        .style("font-size", "12")
+        .style("font-family", "sans-serif")
+        .style("fill", "#fff")
+        .text(function(d){return d.age;});
+
+    // - - - - - - - - - - - - - - - -
+
+    whoEnter.merge(whoUpdate).transition(t)
+        .attr("transform", function(d, i){
+          console.log("ENTERING " + d.name + " TO " + BAR_Y(d.name));
+          return 'translate(' + SVG_MARGINS.left + "," + BAR_Y(d.name) + ")";
+          })
+        .style('fill-opacity', 1);
+
+    // - - - - - - - - - - - - - - - -
+
+    whoUpdate.exit().transition(t)
+      .attr("class", function(){console.log("EXITING"); return "bye";})
+      .style('fill-opacity', 0)
+      .remove();
+
+
+    // // Add the options to the dynamic menus.
+    // sortButton(whoEnter, SVG_MARGINS.left + 3, MARGIN.y - 12);
+    // sortButton(whoEnter, SVG_MARGINS.left + 3, MARGIN.y - 5, 'down');
+    }
+
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Menu setup.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function populateMenus() {
+
+    SELECTORS['name-sort'] = d3.select("#menus .menus-name .menu-sort select");
+    SELECTORS['name-sort'].on("change", menuSelection);
+    SELECTORS['age-sort'] = d3.select("#menus .menus-age .menu-sort select");
+    SELECTORS['age-sort'].on("change", menuSelection);
+
+    var filler_obj = {'name': '', 'age': ''};
+
+    var menus = d3.select('#menus');
+
+    // menus.style('margin-left', SVG_MARGINS.left);
+
+    ['name', 'age'].forEach(function(field) {
+      ['min', 'max'].forEach(function(type){
+
+        var menus_class = ".menus-" + field + " .menu-" + type + " select"
+        var menu_now = menus.select(menus_class)
+
+        SELECTORS[field + '-' + type] = menu_now;
+
+        menu_now.selectAll("option")
+            .data(
+              d3.map(
+                WHODATA.concat([filler_obj]),
+                function(d) {return d[field];}
+              ).keys())
+          .enter().append("option")
+            .sort(function(a, b) {return d3.ascending(a, b);})
+            .text(function(d) { return d; });
+
+        menu_now.property("value", "")
+
+        menu_now.on("change", menuSelection)
+        });
+      });
+    }
+
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Menu change handler callback.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function menuSelection() {
+    // console.log("CHANGE CALLED");
+    redraw()
+    }
+
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Filtering the data set. Assign the return value.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function filteredDataset(dataset) {
+
+    var filters = [
+      {'field': 'name', 'bound': 'min', 'comp': function(x, v) {return x >= v;}},
+      {'field': 'name', 'bound': 'max', 'comp': function(x, v) {return x <= v;}},
+      {'field': 'age', 'bound': 'min', 'comp': function(x, v) {return x >= v;}},
+      {'field': 'age', 'bound': 'max', 'comp': function(x, v) {return x <= v;}},
+      ];
+
+    for(filter_n = 0; filter_n < filters.length; filter_n++) {
+
+      filter = filters[filter_n];
+
+      field = filter['field'];
+      bound = filter['bound'];      
+      comp = filter['comp'];
+
+      console.log('Comparing ' + field + '-' + bound);
+      val = SELECTORS[field + '-' + bound].property('value');
+      if(!val){continue;}
+      console.log('  Boundary value is ' + val)  
+
+      dataset = dataset.filter(
+        function(d){return comp(d[field], val);}
+        );
+      }
+
+    return dataset;
+    }
+
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Sorting the data set. Assign the return value.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function sortedDataset(dataset) {
+
+    var sorts = [
+      {'field': 'name'},
+      {'field': 'age'}
+      ];
+
+    var sort_method = {
+      'Ascending': d3.ascending,
+      'Descending': d3.descending
+      };
+
+    for(sort_n = 0; sort_n < sorts.length; sort_n++) {
+
+      sort = sorts[sort_n];
+
+      field = sort['field'];
+      // sort_func = sort['sort_func'];
+
+      console.log('Sorting ' + field);
+      val = SELECTORS[field + '-sort'].property('value');
+      if(!val){continue;}
+      console.log('  Sort direction is ' + val)
+
+      dataset.sort(function(a, b) {
+        return sort_method[val](a[field], b[field]);
+        });
+      }
+
+    return dataset;
+    }
+
+  </script>
+
+<!-- - - - - - - - - - - - - - -  END SCRIPT  - - - - - - - - - - - - - - -->
+
+  </body>
+</html>
