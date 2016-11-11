@@ -1,0 +1,143 @@
+
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+
+<head>
+  <style>
+
+    body {
+      color: #1f3838;
+      background-color: #fffafa;
+      font-family: Arial, Helvetica, sans-serif;
+      }
+
+    .container {
+      margin: 50px 24px;
+      padding: 10px;
+      }
+
+    </style>
+
+  </head>
+
+<body>
+
+  <div class="container">
+    <svg id='playground'></svg>
+    </div>  <!-- /container -->
+
+  <script src="//d3js.org/d3.v4.min.js"></script>
+
+<!-- - - - - - - - - - - - - - - BEGIN SCRIPT - - - - - - - - - - - - - - -->
+
+<script>
+
+  // Playground dimensions.
+  var SVG_MARGINS = {'top': 40, 'right': 20, 'bottom': 20, 'left': 30};
+  var SVG_SIZE = {
+    'width': 800,
+    'height': 600  - SVG_MARGINS.top - SVG_MARGINS.bottom
+    };
+  var SAMPLE_HEIGHT = 30;
+
+  // Sample data.
+  WHODATA = [
+    {'name': 'Elsa', 'age': 20},
+    {'name': 'Dan', 'age': 42},
+    {'name': 'Carol', 'age': 42},
+    {'name': 'Alice', 'age': 42},
+    {'name': 'Bob', 'age': 20},
+    {'name': 'Fred', 'age': 31},
+    ];
+
+  var SVG_X = d3.scaleLinear();
+  var SVG_Y = d3.scaleLinear();
+
+  // - - - - - - - - - - - - - - - - - - - - - - - -
+  // Initial rendering.
+  // - - - - - - - - - - - - - - - - - - - - - - - -
+
+  var PLAYGROUND = d3.select('#playground')
+      .attr('width', SVG_SIZE.width)
+      .attr('height', SVG_SIZE.height);
+      // .style('border', '1px solid gray');
+
+  redraw();
+
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Redraw the dynamic elements.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function redraw() {
+
+
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+
+    t = d3.transition()
+        .duration(800);
+
+    var whoUpdate = PLAYGROUND
+      .selectAll(".svg-graphic")
+        .data(WHODATA, function(d) {return d.name;});
+
+    var whoEnter = whoUpdate.enter()
+      .append("g")
+        .attr("class", "svg-graphic")
+        .attr("transform", function(d, i) {
+          console.log("ENTERING " + d.name + " TO " + SVG_MARGINS.left + ", " + SVG_Y(0));
+          return 'translate(' + SVG_MARGINS.left + "," + 30 * i + SVG_Y(i / WHODATA.length) + ")";
+          })
+        .style('fill-opacity', 0);
+
+    whoEnter.append("rect")
+        .attr("class", "svg-bar")
+        .attr("width", function(d) {return 250;})
+        .attr("height", SAMPLE_HEIGHT)
+        .style('fill', '#494');
+
+    whoEnter.append("text")
+        .attr("class", "name")
+        .attr("dx", "6px")
+        .attr("dy", "16px")
+        .attr("text-anchor", "start")
+        .style("font-size", "14")
+        .style("font-family", "sans-serif")
+        .style("fill", "#fff")
+        .text(function(d){return d.name;});
+
+    // - - - - - - - - - - - - - - - -
+
+    whoEnter.merge(whoUpdate).transition(t)
+        .attr("transform", function(d, i){
+          console.log("ENTERING " + d.name + " TO " + SVG_Y(i / WHODATA.length));
+          return 'translate(' + SVG_MARGINS.left + "," + 4 * i + SVG_Y(i / WHODATA.length) + ")";
+          })
+        .style('fill-opacity', 1);
+
+    // - - - - - - - - - - - - - - - -
+
+    whoUpdate.exit().transition(t)
+      .attr("class", function(){console.log("EXITING"); return "bye";})
+      .style('fill-opacity', 0)
+      .remove();
+
+
+    }
+
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Menu change handler callback.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function menuSelection() {
+    // console.log("CHANGE CALLED");
+    redraw()
+    }
+
+
+  </script>
+
+<!-- - - - - - - - - - - - - - -  END SCRIPT  - - - - - - - - - - - - - - -->
+
+  </body>
+</html>
