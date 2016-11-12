@@ -1,0 +1,427 @@
+
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+
+<head>
+  <style>
+
+    body {
+      color: #1f3838;
+      background-color: #fffafa;
+      font-family: Arial, Helvetica, sans-serif;
+      }
+
+    .container {
+      margin: 50px 24px;
+      padding: 10px;
+      }
+
+    #menus {
+      font-size: 12px;
+      margin: 10px 20px;
+      }
+
+    #menus span, #menus span{
+      display: inline-block;
+      text-align: left;
+      width: 90px;
+      }
+
+    #playground {
+      }
+
+    </style>
+
+  </head>
+
+<body>
+
+  <div class="container">
+    <svg id='playground'></svg>
+    </div>  <!-- /container -->
+
+  <script src="//d3js.org/d3.v4.min.js"></script>
+
+<!-- - - - - - - - - - - - - - - BEGIN SCRIPT - - - - - - - - - - - - - - -->
+
+<script>
+
+  // Playground dimensions.
+  var SVG_MARGINS = {'top': 40, 'right': 20, 'bottom': 20, 'left': 30};
+  var SVG_SIZE = {
+    'width': 1200,
+    'height': 600  - SVG_MARGINS.top - SVG_MARGINS.bottom
+    };
+
+  // - - - - - - - - - - - - - - - -
+  // Cell dimensions.
+  var CELL_HEIGHT = 14;
+  var CELL_WIDTH = 8;
+
+  var GRID_COLOR = '#c4c0bc';
+
+  // - - - - - - - - - - - - - - - -
+  // Horizontal grouping - e.g. weeks.
+  var CELL_GROUP_COUNT = 7;
+  var CELL_GROUP_GAP = 6;
+
+  // - - - - - - - - - - - - - - - -
+  // Vertical groupings.
+  var ROW_SPACING = 3;
+  var ROW_BAND_COUNT = 3;
+  var ROW_BAND_GAP = 8;
+
+  // - - - - - - - - - - - - - - - -
+  // Every N rows we include a reference "calendar".
+  var ROW_CALENDAR_COUNT = 9;
+  var ROW_CALENDAR_GAP = 12;
+
+  // - - - - - - - - - - - - - - - -
+  // Horizontal and vertical cell counts.
+  var DATA_PER_ROW = 91;
+  var ROWS_COUNT = 25;
+
+  // - - - - - - - - - - - - - - - -
+  // We populate DATA_PER_ROW data elements starting from this value.
+  var DATA_MIN = 6102;
+
+  // The day of the week that a data value of 0 would land on.
+  var DATA_0_WEEKDAY = 3;
+
+  // The day of the week that the first actual data value (DATA_MIN) lands on.
+  var DATA_MIN_WEEKDAY = (DATA_MIN + DATA_0_WEEKDAY) % CELL_GROUP_COUNT;
+
+  // - - - - - - - - - - - - - - - -
+  // We leave a small gap between Sunday and Monday days.
+  var CELL_X_SCALE = d3.scaleOrdinal()
+    .domain(
+      Array(DATA_PER_ROW).fill(0).map(function(x, i){return i + DATA_MIN;})
+      )
+    .range(
+      Array(DATA_PER_ROW).fill(0).map(function(x, i){
+        return (
+          CELL_WIDTH * i
+          + CELL_GROUP_GAP * Math.floor(
+            (i + DATA_MIN_WEEKDAY) / CELL_GROUP_COUNT
+            )
+          )
+        })
+      );
+
+  // - - - - - - - - - - - - - - - -
+  // We leave a small gap every ROW_BAND_COUNT rows, and a slightly
+  // larger gap every ROW_CALENDAR_COUNT rows.
+  var ROW_Y_SCALE = d3.scaleOrdinal()
+    .domain(
+      Array(ROWS_COUNT).fill(0).map(function(x, i){return i;})
+      )
+    .range(
+      Array(ROWS_COUNT).fill(0).map(function(x, i){
+        return (
+          (CELL_HEIGHT + ROW_SPACING) * i
+          + ROW_BAND_GAP * Math.floor(i / ROW_BAND_COUNT)
+          + ROW_CALENDAR_GAP * Math.floor(i / ROW_CALENDAR_COUNT)
+          )
+        })
+      );
+
+  // MONTHSTARTS = getMonthStarts(DATA_MIN, DATA_PER_ROW);
+
+  // var CALENDAR_X_SCALE = d3.scaleOrdinal()
+  //   .domain(MONTHSTARTS.map(function(x) {return x.value;}))
+  //   // .range(MONTHSTARTS.map(function(x) {return x.month;}));
+  //   // .domain([0,1])
+  //   .range(MONTHSTARTS.map(function(x) {return x.value;}));
+      
+  // Will need to set domain size at run time.
+  var CALENDAR_Y_SCALE = d3.scaleOrdinal()
+    .domain(
+      Array(2).fill(0).map(function(x, i){return i;})
+      )
+    .range(
+      Array(ROWS_COUNT).fill(0).map(function(x, i){
+        return (
+          Math.floor(
+            (   
+              ROW_Y_SCALE((i + 1) * ROW_CALENDAR_COUNT - 1)
+              + ROW_Y_SCALE((i + 1) * ROW_CALENDAR_COUNT)
+              + CELL_HEIGHT
+              ) / 2
+            )
+      //     (CELL_HEIGHT + ROW_SPACING) * (i + 1) * ROW_CALENDAR_COUNT
+      //     + ROW_BAND_GAP * ROW_CALENDAR_COUNT/ROW_BAND_COUNT
+      //     + ROW_CALENDAR_GAP * (i + 1)
+          );
+        })
+      );
+
+  // Legacy...
+  // var BAR_Y = d3.scalePoint();
+
+  // - - - - - - - - - - - - - - - - - - - - - - - -
+  // Initial rendering.
+  // - - - - - - - - - - - - - - - - - - - - - - - -
+
+  var PLAYGROUND = d3.select('#playground')
+      .attr('width', SVG_SIZE.width)
+      .attr('height', SVG_SIZE.height);
+      // .style('border', '1px solid gray');
+
+  // PLAYGROUND.append("rect")
+  //   .attr('x', 1)
+  //   .attr('y', 1)
+  //   .attr('width', SVG_SIZE.width - 2)
+  //   .attr('height', SVG_SIZE.height - 2)
+  //   .style('stroke', 'blue')
+  //   .style('fill', 'none')
+  //   ;
+
+
+  // populateAxes();
+  
+  redraw();
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Populate an object with the data values that correspond to the start
+  // and end of months.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function getMonthStarts(data_min, data_count) {
+
+    // Calculate the msec-times for the first days of months in the data.
+
+    day = 24 * 3600 * 1000;
+    monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+      'January'
+      ];  // January twice is intentional.
+
+    monthStarts = new Array();
+
+    baseDays = (new Date('2000/01/01')).getTime()/day;
+
+    data_now = data_min;
+    console.log('data_now: ' + data_now);
+
+    date = new Date(day * (baseDays + data_now));
+    console.log('start: ' + date.toDateString());
+
+    year = date.getFullYear();
+    month = date.getMonth() + 1;  // Remember, the months number 0-11.
+    dom = date.getDate();
+
+    // Did we happen to start on the first of the month?
+    if (dom == 1) {
+      monthStarts.push({'value': data_now, 'month': monthNames[month]});
+      }
+    console.log('----------------');
+    while (true) {
+
+      year = year + (month == 12 ? 1 : 0);
+      month = (month == 12 ? 1 : month + 1);
+
+      // console.log(year + '/' + month + '/01');
+      date = new Date(year + '/' + month + '/01');
+      console.log(date.toDateString());
+
+      time = date.getTime();
+      data_now = Math.floor(time / day - baseDays);
+      console.log('data_now: ' + data_now);
+
+      console.log('');
+      if (data_now >= data_min + data_count) {break;}
+      console.log(month);
+      console.log(monthNames[month]);
+      monthStarts.push({'value': data_now, 'month': monthNames[month]});
+
+      }
+
+    console.log('monthStarts: ' + monthStarts);
+    return monthStarts;
+
+
+    }
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Redraw the dynamic elements.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function redraw() {
+
+    var rowUpdate = PLAYGROUND.selectAll(".grid-row")
+        .data(Array(ROWS_COUNT).fill(0));
+
+    var rowEnter = rowUpdate.enter()
+      .append('g')
+        .attr('class', 'grid-row')
+        .attr(
+          'transform',
+          function(d, i) {return 'translate(0, ' + ROW_Y_SCALE(i) + ')'}
+          );
+
+    var cellUpdate = rowEnter.selectAll('.grid-cell')
+        .data(Array(DATA_PER_ROW).fill(0));
+
+    var cellEnter = cellUpdate.enter()
+      .append('g')
+        .attr('class', 'grid-cell');
+
+    cellEnter.append("rect")
+        .attr("class", "grid-cell")
+        .attr("width", CELL_WIDTH)
+        .attr("height", CELL_HEIGHT)
+        .attr('x',function(d, i) {
+          // console.log(i + " " + CELL_X_SCALE(i));
+          return CELL_X_SCALE(i);
+          })
+        .style('stroke', GRID_COLOR)
+        .style('fill', 'none');
+
+    // // temporary hack to see one.
+    // var calendarUpdate = PLAYGROUND.selectAll(".calendar-row")
+    //     .data(Array(2).fill(0));
+
+    // var calendarEnter = calendarUpdate.enter()
+    //   .append('g')
+    //     .attr('class', 'calendar-row')
+    //     .attr(
+    //       'transform',
+    //       function(d, i) {return 'translate(0, ' + CALENDAR_Y_SCALE(i) + ')'}
+    //       )
+    //     ;
+
+    // calendarEnter.append("rect")
+    //     .attr("class", "dummy")
+    //     .attr("width", CELL_WIDTH + Math.max.apply(null, CELL_X_SCALE.range()))
+    //     // .attr("width", 300)
+    //     .attr("height", 1)
+    //     .style('stroke', GRID_COLOR)
+    //     // .style('fill', 'GRID_COLOR');
+    //     .style('fill', 'none');
+
+    // AS AN AXIS?
+    var x_axis = d3.axisTop(CALENDAR_X_SCALE);
+      // .ticks(8);
+
+    PLAYGROUND.attr('class', 'axis')
+        // .attr('width', 300)
+        // .attr('height', 30)
+      .append("g")
+        .attr(
+          'transform',
+          function(d, i) {return 'translate(0, ' + CALENDAR_Y_SCALE(i) + ')'}
+          )
+        .call(x_axis);
+
+
+
+
+    // var currentData = sortedDataset(filteredDataset(WHODATA));
+    // var currentNames = currentData.map(function(o){return o.name});
+
+    // // Bars distribute down the vertical axis, starting past the margin.
+    // BAR_Y.rangeRound(
+    //     [SVG_MARGINS.top, SVG_MARGINS.top + 26 * (currentNames.length - 1)]
+    //     )
+    //     .domain(currentNames)
+    //     .padding(0);
+
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // t = d3.transition()
+    //     .duration(800)
+
+    // var whoUpdate = PLAYGROUND
+    //   .selectAll(".who-graphic")
+    //     .data(currentData, function(d) {return d.name;});
+
+    // var whoEnter = whoUpdate.enter()
+    //   .append("g")
+    //     .attr("class", "who-graphic")
+    //     .attr("transform", function(d, i) {
+    //       console.log(
+    //         "ENTERING " + d.name + " TO "
+    //           + SVG_MARGINS.left + ", " + BAR_Y(d.name)
+    //         );
+    //       return 'translate(' + SVG_MARGINS.left + "," + BAR_Y(d.name) + ")";
+    //       })
+    //     .style('fill-opacity', 0);
+
+    // whoEnter.append("rect")
+    //     .attr("class", "who-bar")
+    //     .attr("width", function(d) {return BAR_WIDTH(d.age);})
+    //     .attr("height", BAR_HEIGHT)
+    //     .style('fill', '#494');
+
+    // whoEnter.append("text")
+    //     .attr("class", "name")
+    //     .attr("dx", "6px")
+    //     .attr("dy", "16px")
+    //     .attr("text-anchor", "start")
+    //     .style("font-size", "14")
+    //     .style("font-family", "sans-serif")
+    //     .style("fill", "#fff")
+    //     .text(function(d){return d.name;});
+
+    // whoEnter.append("text")
+    //     .attr("class", "height")
+    //     .attr("x", function(d) {return BAR_WIDTH(d.age) - 3;})
+    //     .attr("dx", "-2px")
+    //     .attr("dy", "16px")
+    //     .attr("text-anchor", "end")
+    //     .style("font-size", "12")
+    //     .style("font-family", "sans-serif")
+    //     .style("fill", "#fff")
+    //     .text(function(d){return d.age;});
+
+    // - - - - - - - - - - - - - - - -
+
+    // whoEnter.merge(whoUpdate).transition(t)
+    //     .attr("transform", function(d, i){
+    //       console.log("ENTERING " + d.name + " TO " + BAR_Y(d.name));
+    //       return 'translate(' + SVG_MARGINS.left + "," + BAR_Y(d.name) + ")";
+    //       })
+    //     .style('fill-opacity', 1);
+
+    // - - - - - - - - - - - - - - - -
+
+    // whoUpdate.exit().transition(t)
+    //   .attr("class", function(){console.log("EXITING"); return "bye";})
+    //   .style('fill-opacity', 0)
+    //   .remove();
+
+    }
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Axes setup.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function populateAxes() {
+
+    // A horizontal axis.
+    var x_axis = d3.axisTop(BAR_WIDTH);
+      // .ticks(8);
+
+    d3.select('#playground')
+        .attr('class', 'axis')
+        // .attr('width', 300)
+        // .attr('height', 30)
+      .append("g")
+        .attr('transform', 'translate(0, 20)')
+        .call(x_axis);
+
+    }
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Menu change handler callback.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function menuSelection() {
+    // console.log("CHANGE CALLED");
+    redraw()
+    }
+
+  </script>
+
+<!-- - - - - - - - - - - - - - -  END SCRIPT  - - - - - - - - - - - - - - -->
+
+  </body>
+</html>
