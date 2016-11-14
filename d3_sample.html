@@ -25,7 +25,7 @@
     #menus span, #menus span{
       display: inline-block;
       text-align: left;
-      width: 68px;
+      width: 90px;
       }
 
     #playground {
@@ -138,7 +138,7 @@
   // The vertical height of each bar.
   var BAR_HEIGHT = '20px';
 
-  // Set the range max when we know the data max
+  // A scale for the horizontal width of each bar.
   var BAR_WIDTH = d3.scaleLinear()
       .domain([1, 80])
       .range(
@@ -162,8 +162,13 @@
       .attr('height', SVG_SIZE.height);
       // .style('border', '1px solid gray');
 
-  populateMenus();
-  redraw();
+
+  d3.json('who_data.json', function(data) {
+    WHODATA = data
+    populateMenus();
+    redraw();
+    })
+
 
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

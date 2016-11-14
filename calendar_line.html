@@ -28,6 +28,33 @@
       width: 90px;
       }
 
+
+    .axis path {
+      display: none;
+      }
+
+    .axis line {
+      shape-rendering: crispEdges;
+      stroke: #b7b3ae;
+      /*stroke: #c4c0bc;*/
+      }
+/*
+    .axis .minor line {
+      stroke: #777;
+      stroke-dasharray: 2,2;
+      }
+*/
+    .axis text {
+      display: none;
+      }
+
+    .calendar-month {
+      fill: #aba6a0;
+      font-size: 10px;
+      font-style: italic;
+      font-family: serif;
+      }
+
     #playground {
       }
 
@@ -126,13 +153,14 @@
         })
       );
 
-  // MONTHSTARTS = getMonthStarts(DATA_MIN, DATA_PER_ROW);
+  MONTHSTARTS = getMonthStarts(DATA_MIN, DATA_PER_ROW);
 
-  // var CALENDAR_X_SCALE = d3.scaleOrdinal()
-  //   .domain(MONTHSTARTS.map(function(x) {return x.value;}))
-  //   // .range(MONTHSTARTS.map(function(x) {return x.month;}));
-  //   // .domain([0,1])
-  //   .range(MONTHSTARTS.map(function(x) {return x.value;}));
+  var CALENDAR_X_SCALE = d3.scaleOrdinal()
+    .domain(MONTHSTARTS.map(function(x) {return x.value;}))
+    // .range(MONTHSTARTS.map(function(x) {return x.month;}));
+    // .domain(MONTHSTARTS.map(function(x) {return x.month;}))
+    // .range(MONTHSTARTS.map(function(x) {return x.value;}));
+    .range(MONTHSTARTS.map(function(x) {return CELL_X_SCALE(x.value);}));
       
   // Will need to set domain size at run time.
   var CALENDAR_Y_SCALE = d3.scaleOrdinal()
@@ -146,7 +174,7 @@
             (   
               ROW_Y_SCALE((i + 1) * ROW_CALENDAR_COUNT - 1)
               + ROW_Y_SCALE((i + 1) * ROW_CALENDAR_COUNT)
-              + CELL_HEIGHT
+              + CELL_HEIGHT * 1.5
               ) / 2
             )
       //     (CELL_HEIGHT + ROW_SPACING) * (i + 1) * ROW_CALENDAR_COUNT
@@ -238,6 +266,7 @@
       }
 
     console.log('monthStarts: ' + monthStarts);
+    console.log(monthStarts[0]);
     return monthStarts;
 
 
@@ -299,96 +328,75 @@
     //     // .style('fill', 'GRID_COLOR');
     //     .style('fill', 'none');
 
-    // AS AN AXIS?
-    var x_axis = d3.axisTop(CALENDAR_X_SCALE);
-      // .ticks(8);
+    // // AS AN AXIS?
+    // var calendarAxis = d3.axisTop(CALENDAR_X_SCALE)
+    //   .tickSize(180);
 
-    PLAYGROUND.attr('class', 'axis')
-        // .attr('width', 300)
-        // .attr('height', 30)
-      .append("g")
+    // // // temporary hack to see one.
+    // var calendarUpdate = PLAYGROUND.selectAll(".calendar-row")
+    //     .data(Array(2).fill(0));
+
+    // var calendarEnter = calendarUpdate.enter()
+    //   .append('g')
+    //     .attr("class", "calendar axis")
+    //     .attr(
+    //       'transform',
+    //       function(d, i) {
+    //         console.log('Y: ' + CALENDAR_Y_SCALE(i))
+    //         return 'translate(0, ' + CALENDAR_Y_SCALE(i) + ')'
+    //         }
+    //       )
+    //     .style('stroke', GRID_COLOR)
+    //     .call(calendarAxis);
+
+    gridBottom = Math.max.apply(null, ROW_Y_SCALE.range());
+    console.log(gridBottom);
+
+    var calendarAxis = d3.axisTop(CALENDAR_X_SCALE)
+        .tickSize(gridBottom);
+
+    PLAYGROUND.append('g')
+        .attr("class", "calendar axis")
+        .attr('transform', 'translate(0, ' + gridBottom + ')')
+        .call(calendarAxis);
+
+    var calendarRowUpdate = PLAYGROUND.selectAll(".calendar-row")
+        .data(Array(CALENDAR_Y_SCALE.domain().length).fill(0));
+
+    var calendarRowEnter = calendarRowUpdate.enter()
+      .append('g')
+        .attr('class', 'calendar-row')
         .attr(
           'transform',
-          function(d, i) {return 'translate(0, ' + CALENDAR_Y_SCALE(i) + ')'}
+          function(d, i) {
+            console.log('Y: ' + CALENDAR_Y_SCALE(i))
+            return 'translate(0, ' + CALENDAR_Y_SCALE(i) + ')'
+            }
+          );
+
+    var calendarMonthUpdate = calendarRowEnter.selectAll(".calendar-month")
+        .data(Array(CALENDAR_X_SCALE.domain().length).fill(0));
+
+    var calendarMonthEnter = calendarMonthUpdate.enter()
+      .append('text')
+        .attr('class', 'calendar-month')
+        .attr(
+          'transform',
+          function(d, i) {
+            console.log('X: ' + CALENDAR_X_SCALE(i))
+            return 'translate(' + (CALENDAR_X_SCALE(i) + 8) + ', 0)'
+            }
           )
-        .call(x_axis);
+        .text(function(d, i) {return MONTHSTARTS[i]['month']});
 
 
+    // for (var nMonthStart = 0; nMonthStart < MONTHSTARTS.length; nMonthStart++) {
 
-
-    // var currentData = sortedDataset(filteredDataset(WHODATA));
-    // var currentNames = currentData.map(function(o){return o.name});
-
-    // // Bars distribute down the vertical axis, starting past the margin.
-    // BAR_Y.rangeRound(
-    //     [SVG_MARGINS.top, SVG_MARGINS.top + 26 * (currentNames.length - 1)]
-    //     )
-    //     .domain(currentNames)
-    //     .padding(0);
-
-    // - - - - - - - - - - - - - - - - - - - - - - - -
-
-    // t = d3.transition()
-    //     .duration(800)
-
-    // var whoUpdate = PLAYGROUND
-    //   .selectAll(".who-graphic")
-    //     .data(currentData, function(d) {return d.name;});
-
-    // var whoEnter = whoUpdate.enter()
-    //   .append("g")
-    //     .attr("class", "who-graphic")
-    //     .attr("transform", function(d, i) {
-    //       console.log(
-    //         "ENTERING " + d.name + " TO "
-    //           + SVG_MARGINS.left + ", " + BAR_Y(d.name)
-    //         );
-    //       return 'translate(' + SVG_MARGINS.left + "," + BAR_Y(d.name) + ")";
-    //       })
-    //     .style('fill-opacity', 0);
-
-    // whoEnter.append("rect")
-    //     .attr("class", "who-bar")
-    //     .attr("width", function(d) {return BAR_WIDTH(d.age);})
-    //     .attr("height", BAR_HEIGHT)
-    //     .style('fill', '#494');
-
-    // whoEnter.append("text")
-    //     .attr("class", "name")
-    //     .attr("dx", "6px")
-    //     .attr("dy", "16px")
-    //     .attr("text-anchor", "start")
-    //     .style("font-size", "14")
-    //     .style("font-family", "sans-serif")
-    //     .style("fill", "#fff")
-    //     .text(function(d){return d.name;});
-
-    // whoEnter.append("text")
-    //     .attr("class", "height")
-    //     .attr("x", function(d) {return BAR_WIDTH(d.age) - 3;})
-    //     .attr("dx", "-2px")
-    //     .attr("dy", "16px")
-    //     .attr("text-anchor", "end")
-    //     .style("font-size", "12")
-    //     .style("font-family", "sans-serif")
-    //     .style("fill", "#fff")
-    //     .text(function(d){return d.age;});
-
-    // - - - - - - - - - - - - - - - -
-
-    // whoEnter.merge(whoUpdate).transition(t)
-    //     .attr("transform", function(d, i){
-    //       console.log("ENTERING " + d.name + " TO " + BAR_Y(d.name));
-    //       return 'translate(' + SVG_MARGINS.left + "," + BAR_Y(d.name) + ")";
-    //       })
-    //     .style('fill-opacity', 1);
-
-    // - - - - - - - - - - - - - - - -
-
-    // whoUpdate.exit().transition(t)
-    //   .attr("class", function(){console.log("EXITING"); return "bye";})
-    //   .style('fill-opacity', 0)
-    //   .remove();
+    //   PLAYGROUND.append('g')
+    //       .attr("class", "calendar axis")
+    //       .attr('transform', 'translate(0, ' + gridBottom + ')')
+    //       .call(calendarAxis);
+    //   }
 
     }
 
@@ -398,7 +406,8 @@
   function populateAxes() {
 
     // A horizontal axis.
-    var x_axis = d3.axisTop(BAR_WIDTH);
+    var x_axis = d3.axisTop(BAR_WIDTH)
+      .tickSize(0);
       // .ticks(8);
 
     d3.select('#playground')
