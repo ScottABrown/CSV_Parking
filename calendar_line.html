@@ -49,7 +49,7 @@
       }
 
     .calendar-month {
-      fill: #aba6a0;
+      fill: #b7b3ae;
       font-size: 10px;
       font-style: italic;
       font-family: serif;
@@ -107,6 +107,7 @@
   // - - - - - - - - - - - - - - - -
   // Horizontal and vertical cell counts.
   var DATA_PER_ROW = 91;
+  // var ROWS_COUNT = 9;
   var ROWS_COUNT = 25;
 
   // - - - - - - - - - - - - - - - -
@@ -157,29 +158,29 @@
 
   var CALENDAR_X_SCALE = d3.scaleOrdinal()
     .domain(MONTHSTARTS.map(function(x) {return x.value;}))
-    // .range(MONTHSTARTS.map(function(x) {return x.month;}));
-    // .domain(MONTHSTARTS.map(function(x) {return x.month;}))
-    // .range(MONTHSTARTS.map(function(x) {return x.value;}));
     .range(MONTHSTARTS.map(function(x) {return CELL_X_SCALE(x.value);}));
       
-  // Will need to set domain size at run time.
+  // We'll set the domain size at run time.
+  console.log(ROWS_COUNT);
+  console.log(ROW_CALENDAR_COUNT);
+
+  // If we have exactly enough rows to make up one calendar group, the
+  // calendar row will have to be "added" at the bottom instead of
+  // being positioned between two calendar groups. Hence we subtract
+  // one from ROWS_COUNT.
+  var nCalendarRows = Math.floor((ROWS_COUNT - 1)/ ROW_CALENDAR_COUNT);
+
   var CALENDAR_Y_SCALE = d3.scaleOrdinal()
     .domain(
-      Array(2).fill(0).map(function(x, i){return i;})
+      Array(nCalendarRows).fill(0).map(function(x, i){return i;})
       )
     .range(
-      Array(ROWS_COUNT).fill(0).map(function(x, i){
+      Array(nCalendarRows).fill(0).map(function(x, i){
         return (
           Math.floor(
-            (   
-              ROW_Y_SCALE((i + 1) * ROW_CALENDAR_COUNT - 1)
-              + ROW_Y_SCALE((i + 1) * ROW_CALENDAR_COUNT)
-              + CELL_HEIGHT * 1.5
-              ) / 2
+            2 * CELL_HEIGHT + 
+            ROW_Y_SCALE((i + 1) * ROW_CALENDAR_COUNT - 1)
             )
-      //     (CELL_HEIGHT + ROW_SPACING) * (i + 1) * ROW_CALENDAR_COUNT
-      //     + ROW_BAND_GAP * ROW_CALENDAR_COUNT/ROW_BAND_COUNT
-      //     + ROW_CALENDAR_GAP * (i + 1)
           );
         })
       );
@@ -349,19 +350,37 @@
     //     .style('stroke', GRID_COLOR)
     //     .call(calendarAxis);
 
-    gridBottom = Math.max.apply(null, ROW_Y_SCALE.range());
-    console.log(gridBottom);
+    var gridBottom = Math.max.apply(null, ROW_Y_SCALE.range());
+    // console.log(gridBottom);
+    var calendarBarBottom = gridBottom;
+    var calendarRowY = CALENDAR_Y_SCALE.range();
+
+    var nCalendarRows = CALENDAR_Y_SCALE.domain().length;
+    // nCalendarRows = 0;
+    // console.log('nCalendarGaps: ' + nCalendarRows);
+
+    if (nCalendarRows == 0) {
+      // We'll put in a "fake" one at the bottom.
+      var calendarGapHeight = (
+        ROW_BAND_GAP + ROW_CALENDAR_GAP + ROW_SPACING + CELL_HEIGHT
+        );
+      calendarBarBottom += calendarGapHeight;
+      calendarRowY = [
+        Math.max.apply(null, ROW_Y_SCALE.range()) + 2 * CELL_HEIGHT
+        ];
+      nCalendarRows = 1;
+      }
 
     var calendarAxis = d3.axisTop(CALENDAR_X_SCALE)
-        .tickSize(gridBottom);
+        .tickSize(calendarBarBottom);
 
     PLAYGROUND.append('g')
         .attr("class", "calendar axis")
-        .attr('transform', 'translate(0, ' + gridBottom + ')')
+        .attr('transform', 'translate(0, ' + calendarBarBottom + ')')
         .call(calendarAxis);
 
     var calendarRowUpdate = PLAYGROUND.selectAll(".calendar-row")
-        .data(Array(CALENDAR_Y_SCALE.domain().length).fill(0));
+        .data(calendarRowY);
 
     var calendarRowEnter = calendarRowUpdate.enter()
       .append('g')
@@ -369,8 +388,8 @@
         .attr(
           'transform',
           function(d, i) {
-            console.log('Y: ' + CALENDAR_Y_SCALE(i))
-            return 'translate(0, ' + CALENDAR_Y_SCALE(i) + ')'
+            // console.log('Y: ' + CALENDAR_Y_SCALE(i))
+            return 'translate(0, ' + d + ')'
             }
           );
 
