@@ -154,7 +154,7 @@
         })
       );
 
-  MONTHSTARTS = getMonthStarts(DATA_MIN, DATA_PER_ROW);
+  var MONTHSTARTS = getMonthStarts(DATA_MIN, DATA_PER_ROW);
 
   var CALENDAR_X_SCALE = d3.scaleOrdinal()
     .domain(MONTHSTARTS.map(function(x) {return x.value;}))

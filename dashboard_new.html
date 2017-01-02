@@ -1,0 +1,1583 @@
+
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+
+<head>
+  <style>
+
+    body {
+      color: #33b;
+      background-color: #e0e0ec;
+      font-family: Arial, Helvetica, sans-serif;
+      }
+
+    #container {
+      margin: 50px 24px;
+      padding: 10px;
+      }
+
+    .clear-float {
+      clear: all;
+      }
+
+    .left {
+      float: left;
+      }
+
+    .right {
+      float: left;
+      }
+
+    h1 {
+      margin-left: 50px;
+      }
+
+    p {
+      margin: 0;
+      }
+
+    .h5 {
+      font-weight: bold;
+      /*margin-bottom: 6px;*/
+      }
+
+    .subtext {
+      font-style: italic;
+      font-size: 80%;
+      margin-left: 8px;
+      /*margin-bottom: 6px;*/
+      }
+
+    #selectors {
+      margin: 10px 0 20px 50px;
+      padding: 10px;
+      font-size: 12px;
+      text-align: left;
+      }
+
+    /*#field-filters {
+      margin: 10px 0 20px 50px;
+      padding: 10px;
+      font-size: 12px;
+      text-align: left;
+      }*/
+
+    #selectors div {
+      /*border: 1px dashed gray;*/
+      margin-right: 32px;
+      }
+
+    #field-filters span {
+      width: 130px;
+      display: inline-block;
+      }
+
+    #field-filters span.min, #field-filters span.max {
+      width: 80px;
+      }
+
+    #field-filters span.sort {
+      width: 100px;
+      }
+
+     span.clear {
+      margin-right: 10px;
+      }
+
+    #selectors span.clear {
+      /*color:;*/
+      width: 50px;
+      padding: 1px;
+      border: 1px solid #88a;
+      border-radius: 8px;
+      background-color: #ccf;
+      font-size: smaller;
+      text-align: center;
+      display: inline-block;
+      }
+
+    .textarea-container {
+      margin-bottom: 12px;
+      }
+
+    .textarea-container div.clear-button {
+      text-align: center;
+      }
+
+    textarea {
+      margin-top: 6px;
+      }
+
+
+    #record-details-svg {
+      font-size: 14px;
+      font-family: sans-serif;
+      fill: #33b;
+      }
+
+    .record-detail-header {
+      font-size: 16px;
+      font-weight: bold;
+      }
+
+    .calendar-axis path {
+      display: none;
+      }
+
+    .calendar-axis line {
+      shape-rendering: crispEdges;
+      stroke: #a0a5de;
+      /*stroke: #c4c0bc;*/
+      }
+/*
+    .calendar-axis .minor line {
+      stroke: #777;
+      stroke-dasharray: 2,2;
+      }
+*/
+    .calendar-axis text {
+      display: none;
+      }
+
+    .calendar-month {
+      fill: #8d93d8;
+      font-size: 10px;
+      font-style: italic;
+      font-family: serif;
+      }
+
+
+    </style>
+
+  </head>
+
+<body>
+
+  <div id="container">
+    <h1>Creekside Parking</h1>
+
+    <div id='selectors'>
+      <div class='left'>
+
+        <div id='field-filters'>
+          <table>
+            <tr class='headers'>
+              <th><span class='field'>Field</span></th>
+              <th><span class='clear'>Clear all</span></th>
+              <th><span class='min'>From</span></th>
+              <th><span class='max'>To</span></th>
+              <th><span class='sort'>Sort</span></th>
+              </tr>
+            <tr class='records-filter plate'>
+              <td class='field'>License</td>
+              <td><span class='clear'>Clear</span></th>
+              <td><input type='text' class='min' name='plate-min' size='10' maxlength='10'></input></td>
+              <td><input type='text' class='max' name='plate-max' size='10' maxlength='10'></input></td>
+              <td><select class='sort' name='plate-sort'>
+                <option></option>
+                <option>Ascending</option>
+                <option>Descending</option>
+                </select></td>
+              </tr>
+            <tr class='records-filter log1-long'>
+              <td class='field'>90 days logs</td>
+              <td><span class='clear'>Clear</span></th>
+              <td><input type='text' class='min' name='log1-long-min' size='2' maxlength='2'></input></td>
+              <td><input type='text' class='max' name='log1-long-max' size='2' maxlength='2'></input></td>
+              <td><select class='sort' name='log1-long-sort'>
+                <option></option>
+                <option>Ascending</option>
+                <option>Descending</option>
+                </select></td>
+              </tr>
+            <tr class='records-filter log1-medium'>
+              <td class='field'>60 days logs</td>
+              <td><span class='clear'>Clear</span></th>
+              <td><input type='text' class='min' name='log1-medium-min' size='2' maxlength='2'></input></td>
+              <td><input type='text' class='max' name='log1-medium-max' size='2' maxlength='2'></input></td>
+              <td><select class='sort' name='log1-medium-sort'>
+                <option></option>
+                <option>Ascending</option>
+                <option>Descending</option>
+                </select></td>
+              </tr>
+            <tr class='records-filter log1-short'>
+              <td class='field'>30 days logs</td>
+              <td><span class='clear'>Clear</span></th>
+              <td><input type='text' class='min' name='log1-short-min' size='2' maxlength='2'></input></td>
+              <td><input type='text' class='max' name='log1-short-max' size='2' maxlength='2'></input></td>
+              <td><select class='sort' name='log1-short-sort'>
+                <option></option>
+                <option>Ascending</option>
+                <option>Descending</option>
+                </select></td>
+              </tr>
+            <tr class='records-filter log5-long'>
+              <td class='field'>90 days 3/5 day logs</td>
+              <td><span class='clear'>Clear</span></th>
+              <td><input type='text' class='min' name='log5-long-min' size='2' maxlength='2'></input></td>
+              <td><input type='text' class='max' name='log5-long-max' size='2' maxlength='2'></input></td>
+              <td><select class='sort' name='log5-long-sort'>
+                <option></option>
+                <option>Ascending</option>
+                <option>Descending</option>
+                </select></td>
+              </tr>
+            <tr class='records-filter log5-medium'>
+              <td class='field'>60 days 3/5 day logs</td>
+              <td><span class='clear'>Clear</span></th>
+              <td><input type='text' class='min' name='log5-medium-min' size='2' maxlength='2'></input></td>
+              <td><input type='text' class='max' name='log5-medium-max' size='2' maxlength='2'></input></td>
+              <td><select class='sort' name='log5-medium-sort'>
+                <option></option>
+                <option>Ascending</option>
+                <option>Descending</option>
+                </select></td>
+              </tr>
+            <tr class='records-filter log5-short'>
+              <td class='field'>30 days 3/5 day logs</td>
+              <td><span class='clear'>Clear</span></th>
+              <td><input type='text' class='min' name='log5-short-min' size='2' maxlength='2'></input></td>
+              <td><input type='text' class='max' name='log5-short-max' size='2' maxlength='2'></input></td>
+              <td><select class='sort' name='log5-short-sort'>
+                <option></option>
+                <option>Ascending</option>
+                <option>Descending</option>
+                </select></td>
+              </tr>
+            <tr class='records-filter owner'>
+              <td class='field'>Owner</td>
+              <td><span class='clear'>Clear</span></th>
+              <td><input type='text' class='min' name='owner-min' size='10' maxlength='3'></input></td>
+              <td><input type='text' class='max' name='owner-max' size='10' maxlength='3'></input></td>
+              <td><select class='sort' name='owner-sort'>
+                <option></option>
+                <option>Ascending</option>
+                <option>Descending</option>
+                </select></td>
+              </tr>
+            </table>
+          </div>  <!-- /#field-filters -->
+
+        </div>  <!-- /.left -->
+
+      <div class='right'>
+
+        <div id='select-plates' class='textarea-container'>
+          <p class='h5'>Show records for specified plates:</p>
+          <p class='subtext'>Enter text containing space-separated plates:</p>
+          <textarea id='plate-selection' rows='4' cols='32'></textarea>
+          <div class='clear-button'>
+            <span class='clear'>Clear</span>
+            </div>
+          </div>
+
+        <div id='define-owners' class='textarea-container'>
+          <p class='h5'>Known owners:</p>
+          <p class='subtext'>Enter space-separated PLATE OWNER one per line:</p>
+          <textarea id='owners' rows='4' cols='32'></textarea>
+          <div class='clear-button'>
+            <span class='clear'>Clear</span>
+            </div>
+          </div>
+
+        </div>  <!-- /.right -->
+
+      </div>  <!-- /#selectors -->
+
+    <div class='clear-float'></div>
+
+    <svg id='display'></svg>
+
+    <svg id='record-details-svg'></svg>
+    </div>  <!-- /container -->
+
+  <script src="//d3js.org/d3.v4.min.js"></script>
+
+<!-- - - - - - - - - - - - - - - BEGIN SCRIPT - - - - - - - - - - - - - - -->
+
+<script>
+
+  // Global records of the original data we read in from JSON source.
+  var MASTER_DATA;
+  var DATE_RANGE;         // MASTER_DATA.date_range
+  var LICENSE_RECORDS;    // MASTER_DATA.records_by_lic
+  var MIN_REFDT_OFFSET;
+
+  // Display dimensions.
+  var SVG_MARGINS = {'top': 40, 'right': 20, 'bottom': 20, 'left': 30};
+
+  // We reset this as we dynamically calculate the height and width.
+  var SVG_SIZE = {
+    'width': 200,
+    // 'height': 300 - SVG_MARGINS.top - SVG_MARGINS.bottom
+    'height': 300
+    };
+
+  // - - - - - - - - - - - - - - - -
+  // Cell dimensions.
+  var CELL_HEIGHT = 14;
+  var CELL_WIDTH = 8;
+
+  var GRID_COLOR = '#bcc0e8';
+  var TEXT_COLOR = '#33b';
+
+  // - - - - - - - - - - - - - - - -
+  // Horizontal grouping - e.g. weeks.
+  var CELL_GROUP_COUNT = 7;
+  var CELL_GROUP_GAP = 6;
+
+  // - - - - - - - - - - - - - - - -
+  // Vertical groupings.
+  var ROW_SPACING = 3;
+  var ROW_BAND_COUNT = 3;
+  var ROW_BAND_GAP = 8;
+
+  // - - - - - - - - - - - - - - - -
+  // Every N rows we include a reference "calendar".
+  var ROW_CALENDAR_COUNT = 9;
+  var ROW_CALENDAR_GAP = 12;
+
+  // - - - - - - - - - - - - - - - -
+  // Horizontal and vertical cell counts.
+  var CELLS_PER_GRID_ROW = 91;
+  // var ROWS_COUNT = 25;
+
+  var LEFT_INDENT = -40;
+  var colStops = [
+    {'column': 'plate', 'indent': 160 + LEFT_INDENT},
+    {'column': 'log1-long', 'indent': 200 + LEFT_INDENT},
+    {'column': 'log1-medium', 'indent': 220 + LEFT_INDENT},
+    {'column': 'log1-short', 'indent': 240 + LEFT_INDENT},
+    {'column': 'log5-long', 'indent': 272 + LEFT_INDENT},
+    {'column': 'log5-medium', 'indent': 292 + LEFT_INDENT},
+    {'column': 'log5-short', 'indent': 312 + LEFT_INDENT},
+    {'column': 'owner', 'indent': 332 + LEFT_INDENT},
+    {'column': 'grid', 'indent': 400 + LEFT_INDENT},
+    ];
+
+  var colLabels = [
+    {
+      'column': 'plate',
+      'labels':[{'text': '', 'anchor': 'end'}, {'text': 'Plate', 'anchor': 'end'}]
+      },
+    {
+      'column': 'log1-long',
+      'labels':[{'text': '', 'anchor': 'end'}, {'text': '90', 'anchor': 'end'}]
+      },
+    {
+      'column': 'log1-medium',
+      'labels':[{'text': 'Logged', 'anchor': 'middle'}, {'text': '60', 'anchor': 'end'}]
+      },
+    {
+      'column': 'log1-short',
+      'labels':[{'text': '', 'anchor': 'end'}, {'text': '30', 'anchor': 'end'}]
+      },
+    {
+      'column': 'log5-long',
+      'labels':[{'text': '', 'anchor': 'end'}, {'text': '90', 'anchor': 'end'}]
+      },
+    {
+      'column': 'log5-medium',
+      'labels':[{'text': '3/5 Day', 'anchor': 'middle'}, {'text': '60', 'anchor': 'end'}]
+      },
+    {
+      'column': 'log5-short',
+      'labels':[{'text': '', 'anchor': 'end'}, {'text': '30', 'anchor': 'end'}]
+      },
+    {
+      'column': 'owner',
+      'labels':[{'text': '', 'anchor': 'end'}, {'text': 'Owner', 'anchor': 'start'}]
+      },
+    {
+      'column': 'grid',
+      'labels':[{'text': '', 'anchor': 'end'}, {'text':  'Days Logged', 'anchor': 'start'}]
+      },
+    ]
+
+  var COL_X_SCALE = d3.scaleOrdinal()
+    .domain(colStops.map(function(x) {return x['column']}))
+    .range(colStops.map(function(x) {return x['indent']}));
+
+  var PAGE_Y_SCALE = d3.scaleOrdinal()
+    .domain(['header', 'body'])
+    .range([20, 60]);
+
+  // "Offstage" to the right and bottom.
+  var OFFSTAGE_RIGHT;  // Populate during data read.
+  var OFFSTAGE_BOTTOM;  // Populate during redraw.
+
+  // - - - - - - - - - - - - - - - -
+  // Selection menus for sorting and filtering.
+  var SELECTORS = new Object();
+
+  var SELECTOR_FIELDS = [
+      {'field': 'plate', 'key': 'canonical_lic'},
+      {'field': 'log1-long', 'key': 'log1-long'},
+      {'field': 'log1-medium', 'key': 'log1-medium'},
+      {'field': 'log1-short', 'key': 'log1-short'},
+      {'field': 'log5-long', 'key': 'log5-long'},
+      {'field': 'log5-medium', 'key': 'log5-medium'},
+      {'field': 'log5-short', 'key': 'log5-short'},
+      {'field': 'owner', 'key': 'owner'}
+      ];
+
+  var MONTHSTARTS;
+  var CALENDAR_X_SCALE;
+  var CELL_X_SCALE;
+
+  // - - - - - - - - - - - - - - - - - - - - - - - -
+  // Initial rendering.
+  // - - - - - - - - - - - - - - - - - - - - - - - -
+
+  var PLAYGROUND = d3.select('#display')
+      .attr('width', SVG_SIZE.width)
+      .attr('height', SVG_SIZE.height);
+      // .style('border', '1px solid gray');
+
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Convert offset to date.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function offsetToDateString(offset) {
+
+    var refdtOffset = (new Date('2000/01/01')).getTime();
+    // console.log(offset);
+    // console.log(refdtOffset);
+
+    return (new Date(refdtOffset + (offset * 24 * 3600 * 1000))).toDateString();
+
+    }
+
+
+  // - - - - - - - - - - - - - - - - - - - - - - - -
+  // Load data and draw initial rendering.
+  // - - - - - - - - - - - - - - - - - - - - - - - -
+  d3.json("canonical_lic.json", function(data) {
+    // console.log("Test data:");
+    // console.log(data);
+
+    // We capture these globally for later reference.
+    MASTER_DATA = data;
+
+    LICENSE_RECORDS = new Array();
+    DATE_RANGE = MASTER_DATA.date_range;
+
+    CELLS_PER_GRID_ROW = (
+      DATE_RANGE.last_record_refdt_offset
+        - DATE_RANGE.first_record_refdt_offset
+        + 1
+      );
+
+    var lic_index = data.records_by_lic;
+    var plates = Object.keys(lic_index);
+
+    // - - - - - - - - - - - - - - - -
+    // Massage individual plate records and add to master list.
+    // - - - - - - - - - - - - - - - -
+
+    for (lic_num = 0; lic_num < plates.length; lic_num++) {
+
+      // We need the 30/60/90 days window totals as top level key-value pairs
+      // for sort and filter.
+      lic_index[plates[lic_num]].window_total.forEach(function(window) {
+        lic_index[plates[lic_num]][window.key] = window.value;
+        // console.log(window.key + ": " + lic_index[plates[lic_num]][window.key]);
+        });
+
+      lic_index[plates[lic_num]]['owner'] = "";
+
+      // A guaranteed space-free unique identifier.
+      lic_index[plates[lic_num]]['uid'] = 'plate-' + lic_num;
+
+      LICENSE_RECORDS.push(lic_index[plates[lic_num]]);
+
+      }
+
+    // - - - - - - - - - - - - - - - -
+    // We populate CELLS_PER_GRID_ROW data elements starting from this value.
+    MIN_REFDT_OFFSET = DATE_RANGE.first_record_refdt_offset;
+
+    // The day of the week that a refdt_offset of 0 would land on.
+    var refdtZeroWeekday = (new Date('2000/01/01')).getDay();
+
+    // The day of the week that the first actual refdt_offset (MIN_REFDT_OFFSET) lands on.
+    var minRefdtOffsetWeekday = (MIN_REFDT_OFFSET + refdtZeroWeekday) % CELL_GROUP_COUNT;
+
+    // - - - - - - - - - - - - - - - -
+    // We leave a small gap between Sunday and Monday days.
+    CELL_X_SCALE = d3.scaleOrdinal()
+      .domain(
+        Array(CELLS_PER_GRID_ROW).fill(0).map(function(x, i){return i + MIN_REFDT_OFFSET;})
+        )
+      .range(
+        Array(CELLS_PER_GRID_ROW).fill(0).map(function(x, i){
+          return (
+            CELL_WIDTH * i
+            + CELL_GROUP_GAP * Math.floor(
+              (i + minRefdtOffsetWeekday - 1) / CELL_GROUP_COUNT
+              )
+            )
+          })
+        );
+
+    var cell_colors = [
+      '#ecedf8', '#ecedf8',
+      '#d9dbf2', '#d9dbf2', '#d9dbf2', '#d9dbf2', '#d9dbf2'
+      ]
+
+    CELL_COLOR_SCALE = d3.scaleOrdinal()
+      .domain(
+        Array(7).fill(0).map(function(x, i){
+          // console.log(i);
+          return i;
+          })
+        )
+      .range(
+        Array(7).fill(0).map(function(x, i){
+          // index = (7 + i - minRefdtOffsetWeekday) % 7;
+          index = i;
+          // console.log('Colors: ' + cell_colors[index]);
+          return cell_colors[index];}
+          )
+        );
+
+    MONTHSTARTS = getMonthStarts(MIN_REFDT_OFFSET, CELLS_PER_GRID_ROW);
+
+    CALENDAR_X_SCALE = d3.scaleOrdinal()
+      .domain(MONTHSTARTS.map(function(x) {return x.value;}))
+      // .range(MONTHSTARTS.map(function(x) {return x.month;}));
+      // .domain([0,1])
+      .range(MONTHSTARTS.map(function(x) {return CELL_X_SCALE(x.value);}));
+
+    OFFSTAGE_RIGHT = (
+      COL_X_SCALE('grid')
+      + Math.max.apply(null, CELL_X_SCALE.range())
+      + CELL_WIDTH
+      + SVG_MARGINS['left'] + SVG_MARGINS['right']
+      );
+
+
+    drawHeaders();
+    addStaticHandlers();
+    populateSelectors();
+    redraw(LICENSE_RECORDS);
+    });
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Add static event handlers.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function addStaticHandlers() {
+
+    // Add the "clear all" handler.
+    d3.select('#field-filters .headers .clear')
+      .on(
+        'click',
+        function() {
+          // alert('Hi!');
+          d3.selectAll('#field-filters input')
+              .property('value', '');
+          redraw(
+            sortedDataset(filteredDataset(LICENSE_RECORDS))
+            );
+          }
+        )
+
+    // Add the individual "clear" handlers to the field filters.
+    d3.selectAll('#field-filters .records-filter .clear')
+      .on(
+        'click',
+        function() {
+          // alert('Hi!');
+          currentNode = d3.event.target;
+          // Walk up the DOM until we have the expected parent.
+          while (
+                (currentNode.tagName != 'TR') &&
+                (currentNode.id != 'container')
+              ) {
+            // console.log(currentNode.tagName);
+            // console.log(currentNode.id);
+            currentNode = currentNode.parentNode;
+            // console.log('  ' + currentNode.id);
+            }
+          d3.select(currentNode).selectAll('input')
+              .property('value', '');
+          redraw(
+            sortedDataset(filteredDataset(LICENSE_RECORDS))
+            );
+          }
+        )
+
+    // Add the 'clear' handlers to the textareas for plates, owners.
+    d3.select('#select-plates .clear')
+      .on(
+        'click',
+        function() {
+          // alert('Hi!');
+          d3.selectAll('#select-plates textarea')
+              .property('value', '');
+          redraw(
+            sortedDataset(filteredDataset(LICENSE_RECORDS))
+            );
+          }
+        );
+
+    // Add the 'clear' handlers to the textareas for plates, owners.
+    d3.select('#define-owners .clear')
+      .on(
+        'click',
+        function() {
+          // alert('Hi!');
+          d3.selectAll('#define-owners textarea')
+              .property('value', '');
+          ownerInfoChanged();
+          // redraw(
+          //   sortedDataset(filteredDataset(LICENSE_RECORDS))
+          //   );
+          }
+        );
+    }
+
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Draw the static elements.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function drawHeaders() {
+
+    var headerUpdate = PLAYGROUND.selectAll(".header-row")
+        .data(colLabels);
+
+    var headerEnter = headerUpdate.enter()
+      .append('g')
+        .attr('class', 'header-row')
+        .attr(
+          'transform',
+          function(d, i) {return 'translate(0, ' + PAGE_Y_SCALE('header') + ')'}
+          );
+
+    headerEnter.append("text")
+      .attr("class", "header")
+      .attr("x", function(d) {return COL_X_SCALE(d.column);})
+      // .attr("dx", "-.4em")
+      // .attr("dy", ".8em")
+      .attr("text-anchor", function(d) {return d.labels[0].anchor;})
+      .style("font-family", "sans-serif")
+      .style("font-size", "12px")
+      // .style("text-anchor", "left")
+      .style("fill", TEXT_COLOR)
+      .text(function(d) { return d.labels[0].text; });
+
+    headerEnter.append("text")
+      .attr("class", "header")
+      .attr("x", function(d) {return COL_X_SCALE(d.column);})
+      .attr('y', 16)
+      // .attr("dx", "-.4em")
+      // .attr("dy", ".8em")
+      .attr("text-anchor", function(d) {return d.labels[1].anchor;})
+      .style("font-family", "sans-serif")
+      .style("font-size", "12px")
+      // .style("text-anchor", "left")
+      .style("fill", TEXT_COLOR)
+      .text(function(d) { return d.labels[1].text; });
+
+    return headerUpdate;
+
+    }
+
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Redraw the dynamic elements.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function redraw(licenseRecords) {
+
+    var rowCount = licenseRecords.length;
+
+    // - - - - - - - - - - - - - - - -
+    // We leave a small gap every ROW_BAND_COUNT rows, and a slightly
+    // larger gap every ROW_CALENDAR_COUNT rows.
+    var GRID_Y_SCALE = d3.scaleOrdinal()
+      .domain(
+        Array(rowCount).fill(0).map(function(x, i){return i;})
+        )
+      .range(
+        Array(rowCount).fill(0).map(function(x, i){
+          return (
+            PAGE_Y_SCALE('body') +
+            (CELL_HEIGHT + ROW_SPACING) * i
+            + ROW_BAND_GAP * Math.floor(i / ROW_BAND_COUNT)
+            + ROW_CALENDAR_GAP * Math.floor(i / ROW_CALENDAR_COUNT)
+            )
+          })
+        );
+
+    // - - - - - - - - - - - - - - - -
+    // Build a scale for the rows mapping plates to vertical offsets.
+    var ROW_Y_SCALE = d3.scaleOrdinal()
+      .domain(Array())
+      .range(GRID_Y_SCALE.range());
+
+    var maxGridY = (rowCount == 0) ? 0 : Math.max.apply(null, GRID_Y_SCALE.range())
+
+    for (nRecord = 0; nRecord < licenseRecords.length; nRecord++) {
+      ROW_Y_SCALE.domain().push(licenseRecords[nRecord].canonical_lic);
+      }
+
+    // Offset to the bottom of the grid.
+    OFFSTAGE_BOTTOM = (
+      maxGridY
+      + SVG_MARGINS['top'] + SVG_MARGINS['bottom']
+       );
+
+    // If we have exactly enough rows to make up one calendar group, the
+    // calendar row will have to be "added" at the bottom instead of
+    // being positioned between two calendar groups. Hence we subtract
+    // one from rowCount.
+    var nCalendarRows = Math.floor(Math.max(0, rowCount - 1)/ ROW_CALENDAR_COUNT);
+
+    // Position the calendar entries in the gaps every ROW_CALENDAR_COUNT rows.
+    var CALENDAR_Y_SCALE = d3.scaleOrdinal()
+      .domain(
+        Array(nCalendarRows).fill(0).map(function(x, i){return i;})
+        )
+      .range(
+        Array(nCalendarRows).fill(0).map(function(x, i){
+          return (
+            Math.floor(
+              2 * CELL_HEIGHT + 
+              GRID_Y_SCALE((i + 1) * ROW_CALENDAR_COUNT - 1)
+              )
+            );
+          })
+        );
+
+    // Position the calendar rows.
+    var calendarBarBottom = maxGridY + CELL_HEIGHT - PAGE_Y_SCALE('body');
+    var calendarRowY = CALENDAR_Y_SCALE.range();
+    var nCalendarRows = CALENDAR_Y_SCALE.domain().length;
+
+    if (nCalendarRows == 0) {
+      // We'll put in a "fake" one at the bottom.
+      var calendarGapHeight = (
+        ROW_BAND_GAP + ROW_CALENDAR_GAP + ROW_SPACING + CELL_HEIGHT
+        );
+      calendarBarBottom = maxGridY + calendarGapHeight - PAGE_Y_SCALE('body');
+      calendarRowY = [
+        maxGridY + 2 * CELL_HEIGHT
+        ];
+      nCalendarRows = 1;
+      }
+
+
+    // Separate transitions for an "out-update-in" effect.
+    // transitionDuration = 4600;
+    transitionDuration = 600;
+
+    // exitTransition = d3.transition()
+    //     .duration(transitionDuration)
+    //     .duration(2)
+    //     ;
+
+    // // updateTransition = d3.transition()
+    // //     .duration(transitionDuration)
+    // //     .delay(exitTransition.duration);
+
+    // updateTransition = exitTransition.transition()
+    //     .duration(transitionDuration)
+    //     .duration(6800)
+    //     ;
+
+    // // enterTransition = d3.transition()
+    // //     .duration(transitionDuration)
+    // //     .delay(exitTransition.duration + updateTransition.duration);
+
+    // enterTransition = updateTransition.transition()
+    //     // .duration(transitionDuration)
+    //     ;
+
+    PLAYGROUND = d3.select('#display')
+      .attr('width', OFFSTAGE_RIGHT);
+
+    // We enlarge before, shrink after updating.
+    if (OFFSTAGE_BOTTOM > PLAYGROUND.attr('height')) {
+      PLAYGROUND.attr('height', OFFSTAGE_BOTTOM);
+      }
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Display.
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+    //  Joins and Enters.
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Background grid rows: join the data.
+    var gridRowUpdate = PLAYGROUND.selectAll(".grid-row")
+        .data(licenseRecords, function(d) {return d.canonical_lic;});
+
+    // Background grid rows: enter the grid-row g elements.
+    var gridRowEnter = gridRowUpdate.enter()
+      .append('g')
+        .attr('class', 'grid-row')
+        .attr(
+          // 'transform',
+          // function(d, i) {
+          //   return 'translate(0,'
+          //     + (GRID_Y_SCALE(i) - OFFSTAGE_BOTTOM)
+          //     + ')'
+          //   }
+          'transform',
+          function(d, i) {
+            return 'translate(' + PLAYGROUND.attr('width') + ','
+              + GRID_Y_SCALE(i)
+              + ')'
+            }
+          )
+        .style('fill-opacity', 0);
+
+    // Background grid cells: join the data.
+    var gridCellUpdate = gridRowEnter.selectAll('.grid-cell')
+        .data(Array(CELLS_PER_GRID_ROW).fill(0));
+        // .data(function(d) {return d.records;});
+
+    // Background grid cells: enter the grid-cell g elements.
+    var gridCellEnter = gridCellUpdate.enter()
+      .append('g')
+        .attr('class', 'grid-cell');
+
+    // Parked date cells: join the data.
+    var recordCellUpdate = gridRowEnter.selectAll(".record-cell")
+        .data(function(d) {return d.records;});
+
+    // Parked date cells: enter the g elements.
+    var recordCellEnter = recordCellUpdate.enter()
+      .append('g')
+        .attr('class', 'record-cell');
+
+    // Plate record 30/60/90 totals: join the data.
+    totalsCellUpdate = gridRowEnter.selectAll('window-total-cell')
+        .data(function(d) {return d.window_total;});
+
+    // Plate record 30/60/90 totals: enter the g elements.
+    totalsCellEnter = totalsCellUpdate.enter()
+      .append('g')
+      .attr('class', 'window-total-cell');
+
+    // Calendar rows: Join the data.
+    var calendarRowUpdate = PLAYGROUND.selectAll(".calendar-row")
+        .data(calendarRowY);
+
+    // Calendar rows: add the g elements.
+    var calendarRowEnter = calendarRowUpdate.enter()
+      .append('g')
+        .attr('class', 'calendar-row')
+        .attr(
+          // 'transform',
+          // function(d, i) {
+          //   return 'translate(0,'
+          //     + (GRID_Y_SCALE(i) - OFFSTAGE_BOTTOM)
+          //     + ')'
+          //   }
+          'transform',
+          function(d, i) {
+            return 'translate(' + PLAYGROUND.attr('width') + ','
+              + d + ')'
+            }
+          )
+        .style('fill-opacity', 0)
+        ;
+
+    // Calendar months: join the data.
+    var calendarMonthUpdate = calendarRowEnter.selectAll(".calendar-month")
+        .data(Array(MONTHSTARTS.length).fill(0));
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Drawing the elements.
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Background grid cells: draw the grid cell rect elements.
+    gridCellEnter.append("rect")
+        .attr("class", "grid-cell")
+        .attr("width", CELL_WIDTH)
+        .attr("height", CELL_HEIGHT)
+        .attr('x',function(d, i) {
+          return COL_X_SCALE('grid') + CELL_X_SCALE(i);
+          })
+        .style('stroke', GRID_COLOR)
+        .style('fill', function(d, i){
+          return CELL_COLOR_SCALE((i + MIN_REFDT_OFFSET) % 7)
+          });
+
+    // Parked date cells: draw the new grid cell rect elements.
+    recordCellEnter.append("rect")
+        .attr("class", "record-cell")
+        .attr("width", CELL_WIDTH)
+        .attr("height", CELL_HEIGHT)
+        .attr("x", function(d, i) {
+          return COL_X_SCALE('grid') + CELL_X_SCALE(
+            d.days_since_20000101 - DATE_RANGE.first_record_refdt_offset
+            )
+          })
+        .style("fill", function(d){
+          if(d.five_day_total < 3) {return "blue";} return "red";
+          })
+        .style("stroke", "#bbb");
+
+    // Plate record info: draw the new text element for the plate.
+    gridRowEnter.append("text")
+      .attr("class", "label")
+      .attr("x", COL_X_SCALE('plate'))
+      .attr('y', CELL_HEIGHT - 2)
+      .attr("text-anchor", "end")
+      .style("font-family", "sans-serif")
+      .style("font-size", "12px")
+      .style("fill", TEXT_COLOR)
+      .text(function(d) { return d.canonical_lic; })
+      .on('click', function(d) {plateClicked(d.canonical_lic);});
+
+    // Plate record info: draw the new text element for the owner.
+    gridRowEnter.append("text")
+      .attr("class", "owner")
+      .attr("id", function(d) {return d.uid + '-owner'})
+      .attr("x", COL_X_SCALE('owner'))
+      .attr('y', CELL_HEIGHT - 2)
+      .style("font-family", "sans-serif")
+      .style("font-size", "12px")
+      .style("fill", TEXT_COLOR)
+      .text(function(d) { return d.owner; });
+
+    // Plate record 30/60/90 totals: draw the new text elements.
+    totalsCellEnter.append("text")
+      .attr("class", "window-total")
+      .attr("x", function(d) {return COL_X_SCALE(d.key);})
+      .attr('y', CELL_HEIGHT - 2)
+      .attr("text-anchor", "end")
+      .style("font-family", "sans-serif")
+      .style("font-size", "12px")
+      .style("fill", TEXT_COLOR)
+      .text(function(d) {return d.value;});
+
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+    // Exit transition.
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+
+    exitTransition = d3.transition();
+    if (gridRowUpdate.exit().empty() && calendarRowUpdate.exit().empty()) {
+      exitTransition.duration(0);
+      }
+    else {
+      exitTransition.duration(transitionDuration);
+      }
+
+    // Grid rows: remove.
+    gridRowUpdate.exit().transition(exitTransition)
+      // .attr(
+      //   'transform',
+      //   // WE SAVED THE Y LOCATION IN THE DATA ITEM!
+      //   function(d, i) {return 'translate(0,'+ (d.y + OFFSTAGE_BOTTOM) + ')'}
+      //   )
+      .style('fill-opacity', 0)
+      .remove();
+
+    // Calendar rows: remove.
+    calendarRowUpdate.exit().transition(exitTransition)
+      .style('fill-opacity', 0)
+      .remove();
+
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+    // Update transition.
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+
+    updateTransition = exitTransition.transition();
+    if (gridRowUpdate.empty() && calendarRowUpdate.empty()) {
+      updateTransition.duration(0);
+      }
+    else {
+      updateTransition.duration(transitionDuration);
+      }
+
+    // Grid rows: Move them to new locations and show.
+    gridRowUpdate.transition(updateTransition)
+        .attr(
+          'transform',
+          function(d, i) {
+            return 'translate(0, ' + (d.y = GRID_Y_SCALE(i)) + ')';
+            }
+          )
+        .style('fill-opacity', 1);
+
+    // Calendar rows: Move them to correct locations and show.
+    calendarRowUpdate.transition(updateTransition)
+        .attr(
+          'transform',
+          function(d, i) {
+            return 'translate('
+              + COL_X_SCALE('grid') + ','
+              + d + ')'
+            }
+          )
+        .style('fill-opacity', 1);
+
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+    // Enter transition.
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+
+    enterTransition = updateTransition.transition();
+    if (gridRowEnter.empty() && calendarRowEnter.empty()) {
+      enterTransition.duration(0);
+      }
+    else {
+      enterTransition.duration(transitionDuration);
+      }
+
+    // Grid rows: Move them to new locations and show.
+    gridRowEnter.transition(enterTransition)
+        .attr(
+          'transform',
+          function(d, i) {
+            return 'translate(0, ' + (d.y = GRID_Y_SCALE(i)) + ')';
+            }
+          )
+        .style('fill-opacity', 1);
+
+    // Calendar rows: Move them to correct locations and show.
+    calendarRowEnter.transition(enterTransition)
+        .attr(
+          'transform',
+          function(d, i) {
+            // console.log('X: ' + CALENDAR_X_SCALE(i))
+            // console.log("Updating MONTH row at " + (COL_X_SCALE('grid') + CALENDAR_X_SCALE(i) + 8));
+            return 'translate('
+              + COL_X_SCALE('grid') + ','
+              + d + ')'
+            }
+          )
+        .style('fill-opacity', 1);
+
+    // We enlarge before, shrink after updating.
+    if (OFFSTAGE_BOTTOM < PLAYGROUND.attr('height')) {
+      PLAYGROUND.transition(enterTransition)
+          .duration(0)
+          .attr('height', OFFSTAGE_BOTTOM);
+      }
+
+
+
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+    // Calendar creation.
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Calendars: define the axis, with ticks running to the top of the grid.
+    var calendarAxis = d3.axisTop(CALENDAR_X_SCALE)
+        .tickSize(calendarBarBottom);
+
+    // Calendar axis: remove the old element.
+    var oldCalenderAxis = PLAYGROUND.selectAll('.calendar-axis');
+    // console.log('Before: ' + oldCalenderAxis.size());
+
+    oldCalenderAxis.transition(updateTransition).remove();
+    // console.log('During: ' + d3.selectAll('.calendar-axis').size());
+
+    // console.log('After: ' + d3.selectAll('.calendar-axis').size());
+    // Calendar axis: add the axis.
+    var newCalendarAxis = PLAYGROUND.append('g')
+        .attr("class", "calendar-axis")
+        .attr(
+          'transform',
+          'translate('
+            + (COL_X_SCALE('grid')) + ', '
+            + (PAGE_Y_SCALE('body') + calendarBarBottom) + ')'
+          );
+
+    newCalendarAxis.transition(updateTransition).call(calendarAxis);
+
+    // console.log('After: ' + d3.selectAll('.calendar-axis').size());
+
+
+
+    // // - - - - - - - - - - - - - - - - - - - - - - - -
+    // // Calendar creation.
+    // // - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // // Calendars: define the axis, with ticks running to the top of the grid.
+    // var calendarAxis = d3.axisTop(CALENDAR_X_SCALE)
+    //     .tickSize(calendarBarBottom);
+
+    // // Calendar axis: remove the old element.
+    // console.log('Before: ' + d3.selectAll('.calendar-axis').size());
+    // PLAYGROUND.selectAll('.calendar-axis').transition(updateTransition).remove();
+    // console.log('During: ' + d3.selectAll('.calendar-axis').size());
+
+    // // Calendar axis: add the axis.
+    // PLAYGROUND.append('g')
+    //     .attr("class", "calendar-axis")
+    //     .attr(
+    //       'transform',
+    //       'translate('
+    //         + (COL_X_SCALE('grid')) + ', '
+    //         + (PAGE_Y_SCALE('body') + calendarBarBottom) + ')'
+    //       )
+    //     .call(calendarAxis);
+
+    // console.log('After: ' + d3.selectAll('.calendar-axis').size());
+
+
+
+
+    // Calendar months: draw the new text elements.
+    var calendarMonthEnter = calendarMonthUpdate.enter()
+      .append('text')
+        .attr('class', 'calendar-month')
+        .attr(
+          'transform',
+          function(d, i) {
+            return 'translate(' + (CALENDAR_X_SCALE(MONTHSTARTS[i].value) + 8) + ', 0)'
+            }
+          )
+        .text(function(d, i) {
+          return MONTHSTARTS[i].month;
+          });
+
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+    // Draw details if a single plate is showing.
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+
+    if (licenseRecords.length == 1){
+      showPlateRecords(licenseRecords[0].canonical_lic, enterTransition);
+      }
+    else {
+      showPlateRecords('');
+      }
+
+
+    }
+
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Menu change handler callback.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function menuSelection() {
+    redraw(
+      sortedDataset(filteredDataset(LICENSE_RECORDS))
+      );
+    }
+
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Plate click handler callback.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function plateClicked(plate_val) {
+    // console.log('CLICKED');
+    SELECTORS['plate-min'].property("value", plate_val);
+    SELECTORS['plate-max'].property("value", plate_val);
+    redraw(
+      sortedDataset(filteredDataset(LICENSE_RECORDS))
+      );
+    // showPlateRecords(plate_val);
+    }
+
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Draw a single plate's log records at the bottom of the grid.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function showPlateRecords(plate, transition) {
+
+    // console.log("Showing plate record for " + plate);
+
+    detailsDiv = d3.select('#record-details-svg')
+      .attr('width', '1000')
+      .attr('height', '800');
+
+    if (plate == '') {
+      // console.log('clearing');
+      // detailsDiv.selectAll('.record-details').each(
+      //   function(d, i, n) {
+      //     console.log(n);
+      //     }
+      //   );
+
+      detailsDiv.selectAll('.record-details')
+        .transition()
+          .duration(600)
+          .attr('fill-opacity', 0)  
+          .remove();
+
+      return;
+      }
+
+    plateData = MASTER_DATA.records_by_lic[plate];
+
+    recordFields = [
+      {'field': 'date', 'header': 'Date', 'x': 80,
+        'val': function(d) {return offsetToDateString(d.days_since_20000101);}
+      }, 
+      {'field': 'plate', 'header': 'Plate', 'x': 220, 'val': function(d) {return d.raw_lic;}}, 
+      {'field': 'color', 'header': 'Color', 'x': 320, 'val': function(d) {return d.raw_color;}},
+      {'field': 'make', 'header': 'Make', 'x': 480, 'val': function(d) {return d.raw_make;}},
+      {'field': 'model', 'header': 'Model', 'x': 680, 'val': function(d) {return d.raw_model;}}
+      ]
+
+
+    // // Column headers.
+    // for (nField = 0; nField < recordFields.length; nField++) {
+
+    //   recordField = recordFields[nField];
+    //   detailsDiv.append("text")
+    //     .attr("class", "record-detail header " + recordField.field)
+    //     .attr("x", recordField.x)
+    //     .attr('y', function(d, i) {return 20;})
+    //     .style('font-weight', 'bold')
+    //     .text(recordField.header);
+    //   }
+
+    var recordUpdate = detailsDiv.selectAll('.record-details')
+      .data(plateData.records);
+    // console.log(plateData.records);
+
+    var recordEnter = recordUpdate.enter()
+      .append('g')
+        .attr('class', 'record-details')
+        .attr('fill-opacity', 0);
+
+    // Column headers.
+    for (nField = 0; nField < recordFields.length; nField++) {
+
+      recordField = recordFields[nField];
+      recordEnter.append("text")
+        .attr("class", "record-detail header " + recordField.field)
+        .attr("x", recordField.x)
+        .attr('y', function(d, i) {return 20;})
+        .style('font-weight', 'bold')
+        .text(recordField.header);
+      }
+
+    for (nField = 0; nField < recordFields.length; nField++) {
+
+      recordField = recordFields[nField];
+      recordEnter.append("text")
+        .attr("class", "record-detail " + recordField.field)
+        .attr("x", recordField.x)
+        .attr('y', function(d, i) {return 40 + 20 * i;})
+        .text(function(d) {return recordField.val(d); });
+      }
+
+    recordEnter.transition(transition)
+        .duration(600)
+        .attr('fill-opacity', 1);
+    // recordUpdate.exit().remove();
+
+    }
+
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Menu setup.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function populateSelectors() {
+
+    var selectorTypes = ['min', 'max', 'sort'];
+
+    var field, type;
+    var selectorClass;
+    var selectorNow;
+
+    var fieldFilters = d3.select('#field-filters');
+
+    for (nField = 0; nField < SELECTOR_FIELDS.length; nField++) {
+      for (nType = 0; nType < selectorTypes.length; nType++) {
+
+        field = SELECTOR_FIELDS[nField]['field'];
+        type = selectorTypes[nType];
+
+        selectorClass = "." + field + " ." + type;
+        // console.log(selectorClass);
+        selectorName = field + '-' + type;
+
+        selectorNow = fieldFilters.select(selectorClass);
+        SELECTORS[selectorName] = selectorNow;
+        // console.log(selectorNow);
+        selectorNow.on("change", menuSelection);
+        }
+      }
+
+    d3.select('#plate-selection')
+        .on("change", menuSelection);
+
+    d3.select('#define-owners textarea')
+        .on("change", ownerInfoChanged);
+
+
+    // SELECTORS['name-sort'] = d3.select("#menus .menus-name .menu-sort select");
+    // SELECTORS['name-sort'].on("change", menuSelection);
+    // SELECTORS['age-sort'] = d3.select("#menus .menus-age .menu-sort select");
+    // SELECTORS['age-sort'].on("change", menuSelection);
+
+    // var filler_obj = {'name': '', 'age': ''};
+
+    // var menus = d3.select('#menus');
+
+    // // menus.style('margin-left', SVG_MARGINS.left);
+
+    // ['name', 'age'].forEach(function(field) {
+    //   ['min', 'max'].forEach(function(type){
+
+    //     var menus_class = ".menus-" + field + " .menu-" + type + " select"
+    //     var menu_now = menus.select(menus_class)
+
+    //     SELECTORS[field + '-' + type] = menu_now;
+
+    //     menu_now.selectAll("option")
+    //         .data(
+    //           d3.map(
+    //             WHODATA.concat([filler_obj]),
+    //             function(d) {return d[field];}
+    //           ).keys())
+    //       .enter().append("option")
+    //         .sort(function(a, b) {return d3.ascending(a, b);})
+    //         .text(function(d) { return d; });
+
+    //     menu_now.property("value", "")
+
+    //     menu_now.on("change", menuSelection)
+    //     });
+    //   });
+    }
+
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Owner info handler callback.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function ownerInfoChanged() {
+
+    var defineOwners = d3.select('#define-owners textarea');
+    var ownersText = defineOwners.property('value');
+    var owners = ownersText.split('\n');
+    var ownerRecords = [];
+    var ownerIndex = {};
+
+    for (var nOwner = 0; nOwner < owners.length; nOwner++) {
+
+      ownerString = owners[nOwner]
+      var ownerFields = ownerString.split(/[\s]+/);
+
+      if (ownerFields.length > 0) {
+
+        var ownerRecord = {
+          'plate': ownerFields[0].toUpperCase(),
+          'value': ''
+          };
+
+        if (ownerFields.length > 1) {
+          ownerRecord['value'] = ownerFields.slice(1).join(" ");
+          ownerIndex[ownerFields[0].toUpperCase()] = ownerFields.slice(1).join(" ");
+          }
+        // console.log("record:");
+        // console.log(ownerRecord);
+        ownerRecords.push(ownerRecord);
+        }
+      }
+
+      // console.log(LICENSE_RECORDS[1]);
+      // console.log(ownerIndex);
+      // console.log(LICENSE_RECORDS[1]['canonical_lic']);
+      // console.log(LICENSE_RECORDS[1]['canonical_lic'] in ownerIndex);
+
+      for (var nRecord = 0; nRecord < LICENSE_RECORDS.length; nRecord++) {
+
+        record = LICENSE_RECORDS[nRecord];
+        if (record['canonical_lic'] in ownerIndex) {
+          // We put this into the data, but as of current implementation we need
+          // to push the change into the display by hand.
+          record['owner'] = ownerIndex[record['canonical_lic']];
+          }
+        else {
+          record['owner'] = '';
+          }
+        ownerFieldId = '#' + record.uid + '-owner';
+        d3.select(ownerFieldId).text(record.owner);
+
+        }
+
+    redraw(
+      sortedDataset(filteredDataset(LICENSE_RECORDS))
+      );
+    }
+
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Filtering the data set. Assign the return value.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function filteredDataset(dataset) {
+
+    var filterBounds = [
+      {'bound': 'min', 'comp': function(x, v) {return x >= v;}},
+      {'bound': 'max', 'comp': function(x, v) {return x <= v;}},
+      ];
+
+    var contains = function(list, value) {
+      for (var index = 0; index < list.length; index++) {
+        if (value == list[index]) {return true;}
+        }
+      return false;
+      }
+
+    var plateSelectionText = d3.select('#plate-selection')
+        .property('value');
+    var selectedPlates = plateSelectionText.split(/[\s]+/);
+    // console.log(selectedPlates);
+    // Uppercase the list of plates.
+    for (var index = 0; index < selectedPlates.length; index++) {
+      selectedPlates[index] = selectedPlates[index].toUpperCase();
+      }
+
+    if (selectedPlates.length > 0 && selectedPlates[0].length > 0) {
+      // console.log(selectedPlates);
+      dataset = dataset.filter(
+        function(d){return contains(selectedPlates, d['canonical_lic']);}
+        );
+      }
+
+    for(nSelector = 0; nSelector < SELECTOR_FIELDS.length; nSelector++) {
+      for (nBound = 0; nBound < filterBounds.length; nBound++) {
+
+        selector = SELECTOR_FIELDS[nSelector];
+        filterBound = filterBounds[nBound];
+
+        field = selector['field'];
+        key = selector['key']
+        bound = filterBound['bound'];      
+        comp = filterBound['comp'];
+
+        val = SELECTORS[field + '-' + bound].property('value').toUpperCase();
+        // console.log('Comparing ' + field + '-' + bound + ' to ' + val);
+
+        if(!val){
+          continue;
+          }
+
+        // console.log('  Boundary value is ' + val)  
+
+        // console.log('Dataset length: ' + dataset.length)
+        // console.log(dataset[0]);
+
+        // dataset = dataset.filter(
+        //   function(d){return d['log1-long'] > 3;}
+        //   );
+        dataset = dataset.filter(
+          function(d){return comp(d[key], val);}
+          );
+        // console.log('Dataset length: ' + dataset.length)
+        }
+      }
+
+    return dataset;
+    }
+
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Sorting the data set. Assign the return value.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function sortedDataset(dataset) {
+
+    // console.log("SORTING");
+
+    var sort_method = {
+      'Ascending': d3.ascending,
+      'Descending': d3.descending
+      };
+
+    for(nSelector = 0; nSelector < SELECTOR_FIELDS.length; nSelector++) {
+
+      field = SELECTOR_FIELDS[nSelector]['field'];
+      key = SELECTOR_FIELDS[nSelector]['key'];
+
+      // console.log('Sorting ' + field);
+      val = SELECTORS[field + '-sort'].property('value');
+
+      if(!val){
+        continue;
+        }
+
+      // console.log('  Sort direction is ' + val)
+
+      dataset.sort(function(a, b) {
+        return sort_method[val](a[key], b[key]);
+        });
+      }
+
+    return dataset;
+    }
+
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Populate an object with the refdt_offsets that correspond to the start
+  // and end of months.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function getMonthStarts(dataMin, dataCount) {
+
+    // Calculate the msec-times for the first days of months in the data.
+
+    var day = 24 * 3600 * 1000;
+    var monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+      'January'
+      ];  // January twice is intentional.
+
+    MONTHSTARTS = new Array();
+
+    var baseDays = (new Date('2000/01/01')).getTime()/day;
+
+    var dataNow = dataMin;
+    // console.log('dataNow: ' + dataNow);
+
+    var date = new Date(day * (baseDays + dataNow));
+    // console.log('start: ' + date.toDateString());
+
+    var year = date.getFullYear();
+    var month = date.getMonth();
+    var dom = date.getDate();
+    var time;
+    // console.log('year: ' + year);
+    // console.log('month: ' + month);
+    // console.log('dom: ' + dom);
+    // Did we happen to start on the first of the month?
+    if (dom == 1) {
+      MONTHSTARTS.push({'value': dataNow, 'month': monthNames[month]});
+      }
+    // console.log('----------------');
+    while (true) {
+
+      year = year + (month == 11 ? 1 : 0);
+      month = (month == 11 ? 0 : month + 1);
+
+      // console.log('')
+      // console.log('---------')
+      // console.log(year + '/' + month + '/01');
+      date = new Date(year + '/' + (month + 1) + '/01');// Remember, the months number 0-11.
+      // console.log(date.toDateString());
+
+      time = date.getTime() + (8 * 3600 * 1000);
+      dataNow = Math.floor(time / day - baseDays);
+      // console.log('time: ' + time);
+      // console.log('day: ' + day);
+      // console.log('dataNow: ' + dataNow);
+
+      // console.log('');
+      if (dataNow >= dataMin + dataCount) {break;}
+      // console.log(month);
+      // console.log(monthNames[month]);
+      MONTHSTARTS.push({'value': dataNow, 'month': monthNames[month]});
+      }
+
+    // console.log('MONTHSTARTS:');
+    // console.log(MONTHSTARTS);
+    return MONTHSTARTS;
+
+    }
+
+  </script>
+
+<!-- - - - - - - - - - - - - - -  END SCRIPT  - - - - - - - - - - - - - - -->
+
+  </body>
+</html>
