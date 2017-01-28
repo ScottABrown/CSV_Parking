@@ -1,3 +1,5 @@
+'''Process Creekside Village parking logs.
+'''
 
 from __future__ import print_function
 import argparse
@@ -16,6 +18,7 @@ import boto3
 import xlrd
 
 import matchiness
+import csv_parking_log
 
 
 FILENAME = os.path.split(__file__)[-1]
@@ -54,6 +57,16 @@ COL_INDICES = {
     'TOWDATE': 8,
     'STREET_PARKING_1': 9,
     'TOWDATE_2': 10,
+    }
+
+# The log record type, based on the column in which the date is logged.
+RECORD_TYPE = {
+    5: 'guest_1',
+    6: 'guest_2',
+    7: 'guest_3',
+    8: 'guest_tow',
+    9: 'street_1',
+    10: 'street_tow',
     }
 
 # Date comparison is easier when we use "days since ref date" to compare.
@@ -306,346 +319,7 @@ def get_latest_valid_refdt_offset(filename):
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def inprocess_xls(args):
-    '''Parse a parking log and create data structures.
-    '''
-
-    logger = logging.getLogger()
-
-    logger.debug('inprocessing %s', args.input_file)
-    wb = xlrd.open_workbook(args.input_file)
-
-    # If typos mean there are dates in the spreadsheet that are past the
-    # actual date, we don't want to base the days window on such an end
-    # date. About the best we can do to mitigate this is to see if the
-    # name of the file includes a date segment that tells us what should
-    # be the approximate end date; if this doesn't work, use the current
-    # date. We do this here so we can track the last valid date that occurs
-    # in the input file.
-    latest_valid_refdt_offset_limit = get_latest_valid_refdt_offset(
-        args.input_file
-        )
-    latest_valid_refdt_offset_found = 0
-    latest_valid_date_found = None
-
-    start_refdt_offset = 0
-    end_refdt_offset = 2**16
-    if args.start_date:
-        start_refdt_offset = days_since_refdate(
-            datetime.strptime(args.start_date, "%Y-%m-%d")
-            )
-        logger.debug('starting offset: %s', start_refdt_offset)
-
-    if args.end_date:
-        end_refdt_offset = days_since_refdate(
-            datetime.strptime(args.end_date, "%Y-%m-%d")
-            )
-        logger.debug('ending offset: %s', end_refdt_offset)
-
-    sheet = wb.sheet_by_name('Sheet1')
-    require_expected_row_0(sheet)
-
-    number_of_rows = sheet.nrows
-    logger.debug('rows: %s', number_of_rows)
-    # number_of_columns = sheet.ncols
-    # print
-    # print sheet.name
-    # print '{} x {}'.format(number_of_rows, number_of_columns)
-
-    # A list of license plates, to find equivalences.
-    plates = set([])
-
-    # record_index_by_lic = {}
-    record_index = {
-        'LIC': {},
-        'MAKE': {},
-        'MODEL': {}
-        }
-
-    # The first and last dates for which records were processed.
-    first_record_date = None
-    first_record_refdt_offset = 0
-    last_record_date = None
-    last_record_refdt_offset = 0
-
-    min_refdt_offset_inprocessed = 2**16 - 1
-    max_refdt_offset_inprocessed = 0
-    min_date_inprocessed = None
-    max_date_inprocessed = None
-
-    records_inprocessed = 0
-    records_out_of_date = 0
-    header_rows_skipped = 0
-    rows_inprocessed = 0
-
-    for row_num in range(number_of_rows):
-        record_row = sheet.row(row_num)
-
-        if not record_row[COL_INDICES['LIC']].value:
-            continue
-
-        rows_inprocessed += 1
-
-        try:
-            record_row[COL_INDICES['LIC']].value = (
-                int(float(record_row[COL_INDICES['LIC']].value))
-                )
-        except (ValueError, OverflowError):
-            pass
-        try:
-            record_row[COL_INDICES['MODEL']].value = (
-                int(float(record_row[COL_INDICES['MODEL']].value))
-                )
-        except (ValueError, OverflowError):
-            pass
-
-        # lic = record_row[3].value
-        # print row_num, lic
-        # Check if this is one of the recurring "Header" rows.
-        row_value_list = []
-        for col_index in COL_INDICES.values():
-            row_value_list.append(unicode(record_row[col_index].value).strip())
-
-        # # We need a more robust (forgiving) way ofon
-        if len(set(row_value_list).intersection(set(EXPECTED_ROW_0))) > 2:
-            # if [x.value for x in record_row[:3]] != EXPECTED_ROW_0[:3]:
-            #     err_msg = "Anomalous header value in row %s"
-            #     print lic
-            #     print record_row[:3]
-            #     print err_msg % row_num
-            #     # raise ValueError(err_msg % row_num)
-            header_rows_skipped += 1
-            continue
-
-        # Add a record for each of these potential date fields
-        # that have a value defined.
-        for event_field_index in [
-                COL_INDICES['OPEN_PARKING_1'],
-                COL_INDICES['OPEN_PARKING_2'],
-                COL_INDICES['OPEN_PARKING_3'],
-                COL_INDICES['TOWDATE'],
-                COL_INDICES['STREET_PARKING_1'],
-                COL_INDICES['TOWDATE_2'],
-                ]:  # pylint: disable=bad-continuation
-
-            if record_row[event_field_index].value:
-
-                record_date = record_row[event_field_index].value
-                record_refdt_offset = days_since_refdate(
-                    log_date_to_datetime(record_date)
-                    )
-
-                if record_refdt_offset > latest_valid_refdt_offset_limit:
-                    logger.warn(
-                        'warning: refdt %s at row %s exceeds limit %s: date was %s',
-                        record_refdt_offset,
-                        row_num,
-                        latest_valid_refdt_offset_limit,
-                        record_date
-                        )
-                elif record_refdt_offset > latest_valid_refdt_offset_found:
-                    # It's valid, so it's the new latest found.
-                    latest_valid_refdt_offset_found = record_refdt_offset
-                    latest_valid_date_found = record_date
-
-                if record_refdt_offset < min_refdt_offset_inprocessed:
-                    min_refdt_offset_inprocessed = record_refdt_offset
-                    min_date_inprocessed = record_date
-
-                if record_refdt_offset > max_refdt_offset_inprocessed:
-                    max_refdt_offset_inprocessed = record_refdt_offset
-                    max_date_inprocessed = record_date
-
-                if (
-                        record_refdt_offset < start_refdt_offset
-                        or record_refdt_offset >= end_refdt_offset
-                        ):  # pylint: disable=bad-continuation
-                    records_out_of_date += 1
-                    continue
-
-                record = {
-                    'raw_date': unicode(record_date),
-                    'raw_make': unicode(
-                        record_row[COL_INDICES['MAKE']].value
-                        ),
-                    'raw_model': unicode(
-                        record_row[COL_INDICES['MODEL']].value
-                        ),
-                    'raw_color': unicode(
-                        record_row[COL_INDICES['COLOR']].value
-                        ),
-                    'raw_lic': unicode(
-                        record_row[COL_INDICES['LIC']].value
-                        ),
-                    'raw_location': unicode(
-                        record_row[COL_INDICES['LOCATION']].value
-                        ),
-                    REF_DATETIME_KEY: record_refdt_offset,
-                    }
-
-                if (
-                        not first_record_refdt_offset
-                        or record_refdt_offset < first_record_refdt_offset
-                        ):  # pylint: disable=bad-continuation
-                    first_record_date = record_date
-                    first_record_refdt_offset = record_refdt_offset
-
-                if (
-                        not last_record_refdt_offset
-                        or record_refdt_offset > last_record_refdt_offset
-                        ):  # pylint: disable=bad-continuation
-                    last_record_date = record_date
-                    last_record_refdt_offset = record_refdt_offset
-
-                for index_type in ['LIC', 'MAKE', 'MODEL']:
-                    _ = record_index[index_type].setdefault(
-                        unicode(record_row[COL_INDICES[index_type]].value),
-                        []
-                        )
-                    record_index[index_type][
-                        unicode(record_row[COL_INDICES[index_type]].value)
-                        ].append(record)
-
-
-                    plates.add(unicode(record_row[COL_INDICES['LIC']].value))
-                records_inprocessed += 1
-                # _ = record_index_by_lic.setdefault(
-                #     unicode(record_row[COL_INDICES['LIC']].value),
-                #     []
-                #     )
-                # record_index_by_lic[
-                #     unicode(record_row[COL_INDICES['LIC']].value)
-                #     ].append(record)
-
-            # if '9839721' in unicode(record_row[COL_INDICES['LIC']].value):
-            #     print unicode(record_row[COL_INDICES['LIC']].value)
-            #     import sys
-            #     sys.exit()
-
-        #         # print record
-        # if record_row[COL_INDICES['LIC']].value:
-        #     plates.add(unicode(record_row[COL_INDICES['LIC']].value))
-
-    logger.debug('excel rows processed: %s', rows_inprocessed)
-    logger.debug('header rows skipped: %s', header_rows_skipped)
-
-    logger.debug('earliest refdt_offset found: %s', min_refdt_offset_inprocessed)
-    logger.debug('earliest date found: %s', min_date_inprocessed)
-    logger.debug('latest refdt_offset found: %s', max_refdt_offset_inprocessed)
-    logger.debug('latest date found: %s', max_date_inprocessed)
-    logger.debug('latest valid refdt_offset found: %s', latest_valid_refdt_offset_found)
-    logger.debug('latest valid date found: %s', latest_valid_date_found)
-
-
-    logger.debug('out of date records skipped: %s', records_out_of_date)
-    logger.debug('records inprocessed: %s', records_inprocessed)
-    logger.debug('plates found: %s', len(plates))
-    for index_type in ['LIC', 'MAKE', 'MODEL']:
-        logger.debug('records in %s: %s', index_type, len(record_index[index_type]))
-
-    # We have to have parsed the whole file before we know the latest date
-    # of a record, which we need if the days argument was provided without
-    # a start or end date, and so we can watch for record typos where the
-    # record date is past the latest valid date.
-    if args.days:
-
-        logger.debug('resetting date offset bounds for arg.days...')
-
-        # Note that we don't include records that fall on end_refdt_offset.
-        if args.start_date:
-            start_refdt_offset = days_since_refdate(
-                datetime.strptime(args.start_date, "%Y-%m-%d")
-                )
-            end_refdt_offset = start_refdt_offset + args.days
-
-        else:
-            if args.end_date:
-                end_refdt_offset = days_since_refdate(
-                    datetime.strptime(args.end_date, "%Y-%m-%d")
-                    )
-            else:
-                # Again, we want days worth of records and we
-                # cut off on the day *before* end_refdt_offset. We also don't
-                # accept anything past the latest valid ofset.
-                end_refdt_offset = min(
-                    last_record_refdt_offset, latest_valid_refdt_offset_found
-                    ) + 1
-
-            start_refdt_offset = end_refdt_offset - args.days
-
-        logger.debug('starting offset set to: %s', start_refdt_offset)
-        logger.debug('ending offset set to: %s', end_refdt_offset)
-
-        plates = set([])
-
-        first_record_date = None
-        first_record_refdt_offset = 0
-        last_record_date = None
-        last_record_refdt_offset = 0
-
-        records_discarded_in_index = {}
-        for index_type in ['LIC', 'MAKE', 'MODEL']:
-            records_discarded_in_index[index_type] = 0
-
-        for index_type in ['LIC', 'MAKE', 'MODEL']:
-
-            for key, records in record_index[index_type].iteritems():
-                for record in records:
-                    record_date = record['raw_date']
-                    record_refdt_offset = record[REF_DATETIME_KEY]
-
-                    if (
-                            record_refdt_offset < start_refdt_offset
-                            or record_refdt_offset >= end_refdt_offset
-                            ):  # pylint: disable=bad-continuation
-                        record['delete_me'] = True
-                        records_discarded_in_index[index_type] += 1
-                    else:
-                        plates.add(record['raw_lic'])
-
-                        if (
-                                not first_record_refdt_offset
-                                or record_refdt_offset < first_record_refdt_offset
-                                ):  # pylint: disable=bad-continuation
-                            first_record_date = record_date
-                            first_record_refdt_offset = record_refdt_offset
-
-                        if (
-                                not last_record_refdt_offset
-                                or record_refdt_offset > last_record_refdt_offset
-                                ):  # pylint: disable=bad-continuation
-                            last_record_date = record_date
-                            last_record_refdt_offset = record_refdt_offset
-
-
-        for index_type in ['LIC', 'MAKE', 'MODEL']:
-            for key, records in record_index[index_type].iteritems():
-
-                record_index[index_type][key] = [
-                    r for r in records
-                    if 'delete_me' not in r
-                    ]
-
-
-    date_range = {
-        'first_record_date': first_record_date,
-        'first_record_refdt_offset': first_record_refdt_offset,
-        'last_record_date': last_record_date,
-        'last_record_refdt_offset': last_record_refdt_offset,
-        }
-
-    logger.debug('plates retained: %s', len(plates))
-    for index_type in ['LIC', 'MAKE', 'MODEL']:
-        logger.debug('records discarded from %s: %s', index_type, len(record_index[index_type]))
-
-    return (date_range, plates, record_index)
-
-
-# # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# def pare_records_to_date_window(args, date_range, plates, record_index):
-#     '''Remove records outside the date window determined by args.days.
-#     '''
-
+def inprocess_xls(args):”
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -809,7 +483,7 @@ def select_canonical_lic(plate_set):
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def populate_canonical_licenses(record_index, plates):
-    '''Refine the plate equivalents and select canoncial representatives.
+    '''Refine the plate equivalents and select canonical representatives.
     '''
     matches = matchiness.find_equivalence_classes(list(plates))
 
@@ -936,7 +610,7 @@ def remove_date_duplicate_records(lic_records):
                 break
 
         for record in duplicate_records:
-            del(record['scores'])
+            del record['scores']
 
         # print json.dumps(lic_records)
         # print json.dumps(duplicate_records)
@@ -1078,30 +752,33 @@ def postprocess_output_data(output_data):
 def process_workbook(args):
     '''Carry out workbook processing. 
     '''
-    date_range, plates, record_index = inprocess_xls(args)
+    log_records = inprocess_xls(args)
+    # date_range, plates, record_index = inprocess_xls(args)
 
-    record_index['CANONICAL_LIC'] = {}
+    assert(False)
 
-    populate_canonical_licenses(record_index, plates)
+    # record_index['CANONICAL_LIC'] = {}
 
-    output_data = {
-        'date_range': date_range,
-        'records_by_lic': record_index['CANONICAL_LIC'],
-        }
+    # populate_canonical_licenses(record_index, plates)
 
-    postprocess_output_data(output_data)
+    # output_data = {
+    #     'date_range': date_range,
+    #     'records_by_lic': record_index['CANONICAL_LIC'],
+    #     }
 
-    if args.output_file:
-        with open(args.output_file, 'w') as fptr:
-            json.dump(output_data, fptr)
-    else:
-        print(json.dumps(output_data))
+    # postprocess_output_data(output_data)
 
-    # In case this is useful downstream.
-    return output_data
+    # if args.output_file:
+    #     with open(args.output_file, 'w') as fptr:
+    #         json.dump(output_data, fptr)
+    # else:
+    #     print(json.dumps(output_data))
+
+    # # In case this is useful downstream.
+    # return output_data
      
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def s3_event_handler(event, context):
+def s3_event_handler(event, _):  # unused context parameter.
     '''Respond to an s3 event when called by AWS lambda.
     '''
 

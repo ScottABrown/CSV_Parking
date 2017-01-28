@@ -565,6 +565,7 @@
     redraw(LICENSE_RECORDS);
     });
 
+
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   // Add static event handlers.
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -919,43 +920,60 @@
             )
           })
         .style("fill", function(d){
-          if(d.five_day_total < 3) {return "blue";} return "red";
+          if (d.five_day_total < 3) {return "blue";}
+          if (d.five_day_total == 3) {return "#8800bb"}
+          return "red";
           })
         .style("stroke", "#bbb");
 
+    recordCellEnter.append("text")
+        .attr("x", function(d, i) {
+          return COL_X_SCALE('grid') + CELL_X_SCALE(
+            d.days_since_20000101 - DATE_RANGE.first_record_refdt_offset
+            )
+          })
+        .attr("dx", "1.5")
+        .attr("y", CELL_HEIGHT)
+        .attr("dy", "-4")
+        .attr("text-anchor", "center")
+        .style("font-family", "sans-serif")
+        .style("font-size", "8px")
+        .style("fill", "white")
+        .text(function(d) {if (d.towed) {return "T";} return "";});
+
     // Plate record info: draw the new text element for the plate.
     gridRowEnter.append("text")
-      .attr("class", "label")
-      .attr("x", COL_X_SCALE('plate'))
-      .attr('y', CELL_HEIGHT - 2)
-      .attr("text-anchor", "end")
-      .style("font-family", "sans-serif")
-      .style("font-size", "12px")
-      .style("fill", TEXT_COLOR)
-      .text(function(d) { return d.canonical_lic; })
-      .on('click', function(d) {plateClicked(d.canonical_lic);});
+        .attr("class", "label")
+        .attr("x", COL_X_SCALE('plate'))
+        .attr('y', CELL_HEIGHT - 2)
+        .attr("text-anchor", "end")
+        .style("font-family", "sans-serif")
+        .style("font-size", "12px")
+        .style("fill", TEXT_COLOR)
+        .text(function(d) { return d.canonical_lic; })
+        .on('click', function(d) {plateClicked(d.canonical_lic);});
 
     // Plate record info: draw the new text element for the owner.
     gridRowEnter.append("text")
-      .attr("class", "owner")
-      .attr("id", function(d) {return d.uid + '-owner'})
-      .attr("x", COL_X_SCALE('owner'))
-      .attr('y', CELL_HEIGHT - 2)
-      .style("font-family", "sans-serif")
-      .style("font-size", "12px")
-      .style("fill", TEXT_COLOR)
-      .text(function(d) { return d.owner; });
+        .attr("class", "owner")
+        .attr("id", function(d) {return d.uid + '-owner'})
+        .attr("x", COL_X_SCALE('owner'))
+        .attr('y', CELL_HEIGHT - 2)
+        .style("font-family", "sans-serif")
+        .style("font-size", "12px")
+        .style("fill", TEXT_COLOR)
+        .text(function(d) { return d.owner; });
 
     // Plate record 30/60/90 totals: draw the new text elements.
     totalsCellEnter.append("text")
-      .attr("class", "window-total")
-      .attr("x", function(d) {return COL_X_SCALE(d.key);})
-      .attr('y', CELL_HEIGHT - 2)
-      .attr("text-anchor", "end")
-      .style("font-family", "sans-serif")
-      .style("font-size", "12px")
-      .style("fill", TEXT_COLOR)
-      .text(function(d) {return d.value;});
+        .attr("class", "window-total")
+        .attr("x", function(d) {return COL_X_SCALE(d.key);})
+        .attr('y', CELL_HEIGHT - 2)
+        .attr("text-anchor", "end")
+        .style("font-family", "sans-serif")
+        .style("font-size", "12px")
+        .style("fill", TEXT_COLOR)
+        .text(function(d) {return d.value;});
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Exit transition.
