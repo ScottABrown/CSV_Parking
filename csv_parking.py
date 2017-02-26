@@ -17,8 +17,8 @@ import uuid
 import boto3
 import xlrd
 
-import matchiness
 import csv_parking_log
+import matchiness
 
 
 FILENAME = os.path.split(__file__)[-1]
@@ -319,227 +319,577 @@ def get_latest_valid_refdt_offset(filename):
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def inprocess_xls(args):”
+def inprocess_xls(args):
+    '''Parse a parking log and create data structures. '''
 
+    return
+    # TODO: the rest should be replaced by above.
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def days_between_datesets(dateset1, dateset2, to_datetime_method):
-    '''Return the number of days between closest dates in a set of dates.
-    '''
-
-    # days_1 = [(to_datetime_method(x) - REF_DATETIME).days for x in dateset1]
-    # days_2 = [(to_datetime_method(x) - REF_DATETIME).days for x in dateset2]
-
-    days_1 = [days_since_refdate(to_datetime_method(x)) for x in dateset1]
-    days_2 = [days_since_refdate(to_datetime_method(x)) for x in dateset2]
-
-    days_between = 0
-
-    if max(days_1) < min(days_2):
-        days_between = min(days_2) - max(days_1)
-
-    elif max(days_2) < min(days_1):
-        days_between = min(days_1) - max(days_2)
-
-    return days_between
-
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def refine_plate_equivalents(plate_list, record_index):
-    '''Separate plate list members that were incorrectly grouped.
-
-    Arguments:
-
-        plate_list (list of str):
-            A list of plates that were grouped as equivalent by
-            ``matchiness.find_equivalence_classes()``.
-
-        record_index (dict):
-            A dictionary with a sub-dictionary record_index['LIC']
-            whose keys are plates and whose values are the records
-            extracted from a parking log for that plate.
-    '''
-
-    if len(plate_list) == 1:
-        return [plate_list]
-
-    # - - - - - - - - - - - - - - - - - - - - - - - -
+    #    logger = logging.getLogger()
     #
+    #    logger.debug('inprocessing %s', args.input_file)
+    #    wb = xlrd.open_workbook(args.input_file)
     #
-    # TODO: remove this:
+    #    # If typos mean there are dates in the spreadsheet that are past the
+    #    # actual date, we don't want to base the days window on such an end
+    #    # date. About the best we can do to mitigate this is to see if the
+    #    # name of the file includes a date segment that tells us what should
+    #    # be the approximate end date; if this doesn't work, use the current
+    #    # date. We do this here so we can track the last valid date that occurs
+    #    # in the input file.
+    #    latest_valid_refdt_offset_limit = get_latest_valid_refdt_offset(
+    #        args.input_file
+    #        )
+    #    latest_valid_refdt_offset_found = 0
+    #    latest_valid_date_found = None
+
+    #    start_refdt_offset = 0
+    #    end_refdt_offset = 2**16
+    #    if args.start_date:
+    #        start_refdt_offset = days_since_refdate(
+    #            datetime.strptime(args.start_date, "%Y-%m-%d")
+    #            )
+    #        logger.debug('starting offset: %s', start_refdt_offset)
     #
+    #    if args.end_date:
+    #        end_refdt_offset = days_since_refdate(
+    #            datetime.strptime(args.end_date, "%Y-%m-%d")
+    #            )
+    #        logger.debug('ending offset: %s', end_refdt_offset)
+
+    #    sheet = wb.sheet_by_name('Sheet1')
+    #    require_expected_row_0(sheet)
+
+    #    number_of_rows = sheet.nrows
+    #    logger.debug('rows: %s', number_of_rows)
+    # number_of_columns = sheet.ncols
+    # print
+    # print sheet.name
+    # print '{} x {}'.format(number_of_rows, number_of_columns)
+
+    # A list of license plates, to find equivalences.
+    plates = set([])
+
+    # record_index_by_lic = {}
+    record_index = {
+        'LIC': {},
+        'MAKE': {},
+        'MODEL': {}
+        }
+
+    # The first and last dates for which records were processed.
+    #    first_record_date = None
+    #    first_record_refdt_offset = 0
+    #    last_record_date = None
+    #    last_record_refdt_offset = 0
     #
-    # - - - - - - - - - - - - - - - - - - - - - - - -
-    return [plate_list]
-    # - - - - - - - - - - - - - - - - - - - - - - - -
+    #    min_refdt_offset_inprocessed = 2**16 - 1
+    #    max_refdt_offset_inprocessed = 0
+    #    min_date_inprocessed = None
+    #    max_date_inprocessed = None
     #
+    #    records_inprocessed = 0
+    #    records_out_of_date = 0
     #
+    #    header_rows_skipped = 0
+    #    rows_inprocessed = 0
+
+    for row_num in range(number_of_rows):
+    #        record_row = sheet.row(row_num)
     #
+    #        if not record_row[COL_INDICES['LIC']].value:
+    #            continue
     #
+    #        rows_inprocessed += 1
     #
-    # - - - - - - - - - - - - - - - - - - - - - - - -
+    #        try:
+    #            record_row[COL_INDICES['LIC']].value = (
+    #                int(float(record_row[COL_INDICES['LIC']].value))
+    #                )
+    #        except (ValueError, OverflowError):
+    #            pass
+    #        try:
+    #            record_row[COL_INDICES['MODEL']].value = (
+    #                int(float(record_row[COL_INDICES['MODEL']].value))
+    #                )
+    #        except (ValueError, OverflowError):
+    #            pass
+    #
+    #        # lic = record_row[3].value
+    #        # print row_num, lic
+    #        # Check if this is one of the recurring "Header" rows.
+    #        row_value_list = []
+    #        for col_index in COL_INDICES.values():
+    #            row_value_list.append(unicode(record_row[col_index].value).strip())
+    #
+    #        # # We need a more robust (forgiving) way ofon
+    #        if len(set(row_value_list).intersection(set(EXPECTED_ROW_0))) > 2:
+    #            # if [x.value for x in record_row[:3]] != EXPECTED_ROW_0[:3]:
+    #            #     err_msg = "Anomalous header value in row %s"
+    #            #     print lic
+    #            #     print record_row[:3]
+    #            #     print err_msg % row_num
+    #            #     # raise ValueError(err_msg % row_num)
+    #            header_rows_skipped += 1
+    #            continue
+    #
+    #        # Add a record for each of these potential date fields
+    #        # that have a value defined.
+    #        for event_field_index in [
+    #                COL_INDICES['OPEN_PARKING_1'],
+    #                COL_INDICES['OPEN_PARKING_2'],
+    #                COL_INDICES['OPEN_PARKING_3'],
+    #                COL_INDICES['TOWDATE'],
+    #                COL_INDICES['STREET_PARKING_1'],
+    #                COL_INDICES['TOWDATE_2'],
+    #                ]:  # pylint: disable=bad-continuation
+    #
+    #            record_type = RECORD_TYPE[event_field_index]
+    #
+    #            # If a value is present for this type of event, it should be
+    #            # the date the event was logged.
+    #            if record_row[event_field_index].value:
+    #
+    #                record_date = record_row[event_field_index].value
+    #                record_refdt_offset = days_since_refdate(
+    #                    log_date_to_datetime(record_date)
+    #                    )
 
-    plate_pairs_fields = {}
-    plate_pairs_comparison = {}
-    plate_list = sorted(plate_list)
+    #                # We keep track of the dates we see and use them later
+    #                # to pare down the record set based on the valid range
+    #                # of dates (basically, dates past the latest we should
+    #                # see or past today are invalid) and the date range
+    #                # requested.
+    #                if record_refdt_offset > latest_valid_refdt_offset_limit:
+    #                    logger.warn(
+    #                        'warning: refdt %s at row %s exceeds limit %s: date was %s',
+    #                        record_refdt_offset,
+    #                        row_num,
+    #                        latest_valid_refdt_offset_limit,
+    #                        record_date
+    #                        )
+    #                elif record_refdt_offset > latest_valid_refdt_offset_found:
+    #                    # It's valid, so it's the new latest found.
+    #                    latest_valid_refdt_offset_found = record_refdt_offset
+    #                    latest_valid_date_found = record_date
+    #
+    #                if record_refdt_offset < min_refdt_offset_inprocessed:
+    #                    min_refdt_offset_inprocessed = record_refdt_offset
+    #                    min_date_inprocessed = record_date
+    #
+    #                if record_refdt_offset > max_refdt_offset_inprocessed:
+    #                    max_refdt_offset_inprocessed = record_refdt_offset
+    #                    max_date_inprocessed = record_date
 
-    for plate_1 in plate_list:
+    #                if (
+    #                        record_refdt_offset < start_refdt_offset
+    #                        or record_refdt_offset >= end_refdt_offset
+    #                        ):  # pylint: disable=bad-continuation
+    #                    records_out_of_date += 1
+    #                    continue
 
-        records_1 = record_index['LIC'][plate_1]
+    #                record = {
+    #                    'raw_date': unicode(record_date),
+    #                    'raw_make': unicode(
+    #                        record_row[COL_INDICES['MAKE']].value
+    #                        ),
+    #                    'raw_model': unicode(
+    #                        record_row[COL_INDICES['MODEL']].value
+    #                        ),
+    #                    'raw_color': unicode(
+    #                        record_row[COL_INDICES['COLOR']].value
+    #                        ),
+    #                    'raw_lic': unicode(
+    #                        record_row[COL_INDICES['LIC']].value
+    #                        ),
+    #                    'raw_location': unicode(
+    #                        record_row[COL_INDICES['LOCATION']].value
+    #                        ),
+    #                    REF_DATETIME_KEY: record_refdt_offset,
+    #                    }
 
-        for plate_2 in plate_list[plate_list.index(plate_1) + 1:]:
-            records_2 = record_index['LIC'][plate_2]
+    #                if (
+    #                        not first_record_refdt_offset
+    #                        or record_refdt_offset < first_record_refdt_offset
+    #                        ):  # pylint: disable=bad-continuation
+    #                    first_record_date = record_date
+    #                    first_record_refdt_offset = record_refdt_offset
+    #
+    #                if (
+    #                        not last_record_refdt_offset
+    #                        or record_refdt_offset > last_record_refdt_offset
+    #                        ):  # pylint: disable=bad-continuation
+    #                    last_record_date = record_date
+    #                    last_record_refdt_offset = record_refdt_offset
 
-            plate_pair = tuple([plate_1, plate_2])
+                for index_type in ['LIC', 'MAKE', 'MODEL']:
+                    _ = record_index[index_type].setdefault(
+                        unicode(record_row[COL_INDICES[index_type]].value),
+                        []
+                        )
+                    record_index[index_type][
+                        unicode(record_row[COL_INDICES[index_type]].value)
+                        ].append(record)
 
-            plate_pairs_fields[plate_pair] = {
-                'makes': [
-                    set([x['raw_make'] for x in records_1]),
-                    set([x['raw_make'] for x in records_2])
-                    ],
-                'models': [
-                    set([x['raw_model'] for x in records_1]),
-                    set([x['raw_model'] for x in records_2])
-                    ],
-                'colors': [
-                    set([x['raw_color'] for x in records_1]),
-                    set([x['raw_color'] for x in records_2])
-                    ],
-                'dates': [
-                    set([x['raw_date'] for x in records_1]),
-                    set([x['raw_date'] for x in records_2])
-                    ],
-                }
-            fields = plate_pairs_fields[plate_pair]
-            plate_pairs_comparison[plate_pair] = {
-                k: {
-                    'unique_1': fields[k][0].difference(fields[k][1]),
-                    'common': fields[k][0].intersection(fields[k][1]),
-                    'unique_2': fields[k][1].difference(fields[k][0]),
-                    'all': fields[k][0].union(fields[k][1]),
-                    }
-                for k in fields.keys()
-                }
 
-            # if(
-            #         plate_pairs_comparison[plate_pair]['models']['common']
-            #         != plate_pairs_comparison[plate_pair]['models']['all']
-            #         ):  # pylint: disable=bad-continuation
+                    plates.add(unicode(record_row[COL_INDICES['LIC']].value))
+    #                records_inprocessed += 1
+                # _ = record_index_by_lic.setdefault(
+                #     unicode(record_row[COL_INDICES['LIC']].value),
+                #     []
+                #     )
+                # record_index_by_lic[
+                #     unicode(record_row[COL_INDICES['LIC']].value)
+                #     ].append(record)
 
-            #     print '\n----\n'
-            #     print (
-            #         plate_pairs_comparison[plate_pair]['models']['common']
-            #         != plate_pairs_comparison[plate_pair]['models']['all']
-            #         )
-            #     print plate_list
-            #     print '{}: {}'.format(plate_1, len(records_1))
-            #     print '{}: {}'.format(plate_2, len(records_2))
-
-            #     print "Records:"
-            #     for x in records_1:
-            #         print 'record 1: {}: {}'.format(plate_1, x)
-            #     for x in records_2:
-            #         print 'record 2: {}: {}'.format(plate_2, x)
-
-            #     print "Plate pairs comparison:"
-            #     for k, v in plate_pairs_comparison[plate_pair].items():
-            #         print '{}:\t{}'.format(k, v)
-            #     print
-            #     match_score = matchiness.get_match_score(list(plate_pair))
-            #     print (
-            #         '{}\t({}, {})\tCommon scores: ({}, {}, {})\t{}\t({}, {})'
-            #         ).format(
-            #         plate_pair,
-            #         len(record_index['LIC'][plate_pair[0]]),
-            #         len(record_index['LIC'][plate_pair[1]]),
-            #         len(plate_pairs_comparison[plate_pair]['makes']['common']),
-            #         len(
-            #             plate_pairs_comparison[plate_pair]['models']['common']
-            #             ),
-            #         len(
-            #             plate_pairs_comparison[plate_pair]['colors']['common']
-            #             ),
-            #         days_between_datesets(
-            #             [x['raw_date'] for x in records_1],
-            #             [x['raw_date'] for x in records_2],
-            #             log_date_to_datetime
-            #             ),
-            #         match_score[plate_pair[0]][plate_pair[1]],
-            #         match_score[plate_pair[1]][plate_pair[0]],
-            #         )
-
+            # if '9839721' in unicode(record_row[COL_INDICES['LIC']].value):
+            #     print unicode(record_row[COL_INDICES['LIC']].value)
             #     import sys
             #     sys.exit()
-    # Count number of occurrences of make, model, color; lower value if common
-    # matches. knocking out edges from complete graph.
+
+        #         # print record
+        # if record_row[COL_INDICES['LIC']].value:
+        #     plates.add(unicode(record_row[COL_INDICES['LIC']].value))
+
+    #    logger.debug('excel rows processed: %s', rows_inprocessed)
+    #    logger.debug('header rows skipped: %s', header_rows_skipped)
+    #
+    #    logger.debug('earliest refdt_offset found: %s', min_refdt_offset_inprocessed)
+    #    logger.debug('earliest date found: %s', min_date_inprocessed)
+    #    logger.debug('latest refdt_offset found: %s', max_refdt_offset_inprocessed)
+    #    logger.debug('latest date found: %s', max_date_inprocessed)
+    #    logger.debug('latest valid refdt_offset found: %s', latest_valid_refdt_offset_found)
+    #    logger.debug('latest valid date found: %s', latest_valid_date_found)
+    #
+    #
+    #    logger.debug('out of date records skipped: %s', records_out_of_date)
+    #    logger.debug('records inprocessed: %s', records_inprocessed)
+    #    logger.debug('plates found: %s', len(plates))
+    #    for index_type in ['LIC', 'MAKE', 'MODEL']:
+    #        logger.debug('records in %s: %s', index_type, len(record_index[index_type]))
+
+    # We have to have parsed the whole file before we know the latest date
+    # of a record, which we need if the days argument was provided without
+    # a start or end date, and so we can watch for record typos where the
+    # record date is past the latest valid date.
+    if args.days:
+
+    #        logger.debug('resetting date offset bounds for arg.days...')
+    #
+    #        # Note that we don't include records that fall on end_refdt_offset.
+    #        if args.start_date:
+    #            start_refdt_offset = days_since_refdate(
+    #                datetime.strptime(args.start_date, "%Y-%m-%d")
+    #                )
+    #            end_refdt_offset = start_refdt_offset + args.days
+    #
+    #        else:
+    #            if args.end_date:
+    #                end_refdt_offset = days_since_refdate(
+    #                    datetime.strptime(args.end_date, "%Y-%m-%d")
+    #                    )
+    #            else:
+    #                # Again, we want days worth of records and we
+    #                # cut off on the day *before* end_refdt_offset. We also don't
+    #                # accept anything past the latest valid ofset.
+    #                end_refdt_offset = min(
+    #                    last_record_refdt_offset, latest_valid_refdt_offset_found
+    #                    ) + 1
+    #
+    #            start_refdt_offset = end_refdt_offset - args.days
+    #
+    #        logger.debug('starting offset set to: %s', start_refdt_offset)
+    #        logger.debug('ending offset set to: %s', end_refdt_offset)
+
+        plates = set([])
+
+    #        first_record_date = None
+    #        first_record_refdt_offset = 0
+    #        last_record_date = None
+    #        last_record_refdt_offset = 0
+    #
+    #        records_discarded_in_index = {}
+    #        for index_type in ['LIC', 'MAKE', 'MODEL']:
+    #            records_discarded_in_index[index_type] = 0
+    #
+    #        for index_type in ['LIC', 'MAKE', 'MODEL']:
+    #
+    #            for key, records in record_index[index_type].iteritems():
+    #                for record in records:
+    #                    record_date = record['raw_date']
+    #                    record_refdt_offset = record[REF_DATETIME_KEY]
+    #
+    #                    if (
+    #                            record_refdt_offset < start_refdt_offset
+    #                            or record_refdt_offset >= end_refdt_offset
+    #                            ):  # pylint: disable=bad-continuation
+    #                        record['delete_me'] = True
+    #                        records_discarded_in_index[index_type] += 1
+    #                    else:
+    #                        plates.add(record['raw_lic'])
+    #
+    #                        if (
+    #                                not first_record_refdt_offset
+    #                                or record_refdt_offset < first_record_refdt_offset
+    #                                ):  # pylint: disable=bad-continuation
+    #                            first_record_date = record_date
+    #                            first_record_refdt_offset = record_refdt_offset
+    #
+    #                        if (
+    #                                not last_record_refdt_offset
+    #                                or record_refdt_offset > last_record_refdt_offset
+    #                                ):  # pylint: disable=bad-continuation
+    #                            last_record_date = record_date
+    #                            last_record_refdt_offset = record_refdt_offset
+    #
+    #
+    #        for index_type in ['LIC', 'MAKE', 'MODEL']:
+    #            for key, records in record_index[index_type].iteritems():
+    #
+    #                record_index[index_type][key] = [
+    #                    r for r in records
+    #                    if 'delete_me' not in r
+    #                    ]
+    #
+    #
+    #    date_range = {
+    #        'first_record_date': first_record_date,
+    #        'first_record_refdt_offset': first_record_refdt_offset,
+    #        'last_record_date': last_record_date,
+    #        'last_record_refdt_offset': last_record_refdt_offset,
+    #        }
+    #
+    #    logger.debug('plates retained: %s', len(plates))
+    #    for index_type in ['LIC', 'MAKE', 'MODEL']:
+    #        logger.debug('records discarded from %s: %s', index_type, len(record_index[index_type]))
+    #
+    #    return (date_range, plates, record_index)
 
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def select_canonical_lic(plate_set):
-    '''Select and return the canonical representative of a set of plates.
-    '''
-    return list(plate_set)[0]
+    # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # def pare_records_to_date_window(args, date_range, plates, record_index):
+    #     '''Remove records outside the date window determined by args.days.
+    #     '''
 
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def populate_canonical_licenses(record_index, plates):
-    '''Refine the plate equivalents and select canonical representatives.
-    '''
-    matches = matchiness.find_equivalence_classes(list(plates))
+    # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # def days_between_datesets(dateset1, dateset2, to_datetime_method):
+    #     '''Return the number of days between closest dates in a set of dates.
+    #     '''
 
-    for plate_list in matches:
+    #     # days_1 = [(to_datetime_method(x) - REF_DATETIME).days for x in dateset1]
+    #     # days_2 = [(to_datetime_method(x) - REF_DATETIME).days for x in dateset2]
 
-        # old_thing_with_match_groups(plate_list)
-        refined_plate_list = refine_plate_equivalents(plate_list, record_index)
+    #     days_1 = [days_since_refdate(to_datetime_method(x)) for x in dateset1]
+    #     days_2 = [days_since_refdate(to_datetime_method(x)) for x in dateset2]
 
-        for plate_list_section in refined_plate_list:
+    #     days_between = 0
 
-            # canonical_lic = list(plate_list_section)[0]
-            canonical_lic = select_canonical_lic(plate_list_section)
-            record_index['CANONICAL_LIC'][canonical_lic] = []
+    #     if max(days_1) < min(days_2):
+    #         days_between = min(days_2) - max(days_1)
 
-            for plate in list(plate_list_section):
+    #     elif max(days_2) < min(days_1):
+    #         days_between = min(days_1) - max(days_2)
 
-                for record in record_index['LIC'][plate]:
-                    record['canonical_lic'] = canonical_lic
-                    record['lic_equivalents'] = list(plate_list_section)
-
-                record_index['CANONICAL_LIC'][canonical_lic].extend(
-                    record_index['LIC'][plate]
-                    )
+    #     return days_between
 
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def old_thing_with_match_groups(plate_list):
-    '''obsolete.
-    '''
-    _ = plate_list  # Shut up, pylint.
-        # if len(plate_list) > 1:
-        #     multi_match_count += 1
+    # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # def refine_plate_equivalents(plate_list, record_index):
+    #     '''Separate plate list members that were incorrectly grouped.
 
-        #     # Dump match groups.
-        #     print '\n\n\n-----------------------------\n\n'
-        #     print 'group {}\t{}'.format(
-        #         multi_match_count, "\t".join(plate_list)
-        #         )
+    #     Arguments:
 
-        #     for plate in plate_list:
+    #         plate_list (list of str):
+    #             A list of plates that were grouped as equivalent by
+    #             ``matchiness.find_equivalence_classes()``.
 
-        #         # if plate not in record_index_by_lic:
-        #         if plate not in record_index['LIC']:
-        #             # TODO: log a warning.
-        #             print '{}: No record'.format(plate)
-        #             continue
+    #         record_index (dict):
+    #             A dictionary with a sub-dictionary record_index['LIC']
+    #             whose keys are plates and whose values are the records
+    #             extracted from a parking log for that plate.
+    #     '''
 
-        #         for record in record_index_by_lic[plate]:
-        #             print '{}\t{}\t{}\t{}\t{}'.format(
-        #                 record['raw_lic'],
-        #                 record['raw_make'],
-        #                 record['raw_model'],
-        #                 record['raw_color'],
-        #                 record['raw_date'],
-        #                 )
-        #     print
+    #     if len(plate_list) == 1:
+    #         return [plate_list]
+
+    #     # - - - - - - - - - - - - - - - - - - - - - - - -
+    #     #
+    #     #
+    #     # TODO: remove this:
+    #     #
+    #     #
+    #     # - - - - - - - - - - - - - - - - - - - - - - - -
+    #     return [plate_list]
+    #     # - - - - - - - - - - - - - - - - - - - - - - - -
+    #     #
+    #     #
+    #     #
+    #     #
+    #     #
+    #     # - - - - - - - - - - - - - - - - - - - - - - - -
+
+    #     plate_pairs_fields = {}
+    #     plate_pairs_comparison = {}
+    #     plate_list = sorted(plate_list)
+
+    #     for plate_1 in plate_list:
+
+    #         records_1 = record_index['LIC'][plate_1]
+
+    #         for plate_2 in plate_list[plate_list.index(plate_1) + 1:]:
+    #             records_2 = record_index['LIC'][plate_2]
+
+    #             plate_pair = tuple([plate_1, plate_2])
+
+    #             plate_pairs_fields[plate_pair] = {
+    #                 'makes': [
+    #                     set([x['raw_make'] for x in records_1]),
+    #                     set([x['raw_make'] for x in records_2])
+    #                     ],
+    #                 'models': [
+    #                     set([x['raw_model'] for x in records_1]),
+    #                     set([x['raw_model'] for x in records_2])
+    #                     ],
+    #                 'colors': [
+    #                     set([x['raw_color'] for x in records_1]),
+    #                     set([x['raw_color'] for x in records_2])
+    #                     ],
+    #                 'dates': [
+    #                     set([x['raw_date'] for x in records_1]),
+    #                     set([x['raw_date'] for x in records_2])
+    #                     ],
+    #                 }
+    #             fields = plate_pairs_fields[plate_pair]
+    #             plate_pairs_comparison[plate_pair] = {
+    #                 k: {
+    #                     'unique_1': fields[k][0].difference(fields[k][1]),
+    #                     'common': fields[k][0].intersection(fields[k][1]),
+    #                     'unique_2': fields[k][1].difference(fields[k][0]),
+    #                     'all': fields[k][0].union(fields[k][1]),
+    #                     }
+    #                 for k in fields.keys()
+    #                 }
+
+    #             # if(
+    #             #         plate_pairs_comparison[plate_pair]['models']['common']
+    #             #         != plate_pairs_comparison[plate_pair]['models']['all']
+    #             #         ):  # pylint: disable=bad-continuation
+
+    #             #     print '\n----\n'
+    #             #     print (
+    #             #         plate_pairs_comparison[plate_pair]['models']['common']
+    #             #         != plate_pairs_comparison[plate_pair]['models']['all']
+    #             #         )
+    #             #     print plate_list
+    #             #     print '{}: {}'.format(plate_1, len(records_1))
+    #             #     print '{}: {}'.format(plate_2, len(records_2))
+
+    #             #     print "Records:"
+    #             #     for x in records_1:
+    #             #         print 'record 1: {}: {}'.format(plate_1, x)
+    #             #     for x in records_2:
+    #             #         print 'record 2: {}: {}'.format(plate_2, x)
+
+    #             #     print "Plate pairs comparison:"
+    #             #     for k, v in plate_pairs_comparison[plate_pair].items():
+    #             #         print '{}:\t{}'.format(k, v)
+    #             #     print
+    #             #     match_score = matchiness.get_match_score(list(plate_pair))
+    #             #     print (
+    #             #         '{}\t({}, {})\tCommon scores: ({}, {}, {})\t{}\t({}, {})'
+    #             #         ).format(
+    #             #         plate_pair,
+    #             #         len(record_index['LIC'][plate_pair[0]]),
+    #             #         len(record_index['LIC'][plate_pair[1]]),
+    #             #         len(plate_pairs_comparison[plate_pair]['makes']['common']),
+    #             #         len(
+    #             #             plate_pairs_comparison[plate_pair]['models']['common']
+    #             #             ),
+    #             #         len(
+    #             #             plate_pairs_comparison[plate_pair]['colors']['common']
+    #             #             ),
+    #             #         days_between_datesets(
+    #             #             [x['raw_date'] for x in records_1],
+    #             #             [x['raw_date'] for x in records_2],
+    #             #             log_date_to_datetime
+    #             #             ),
+    #             #         match_score[plate_pair[0]][plate_pair[1]],
+    #             #         match_score[plate_pair[1]][plate_pair[0]],
+    #             #         )
+
+    #             #     import sys
+    #             #     sys.exit()
+    #     # Count number of occurrences of make, model, color; lower value if common
+    #     # matches. knocking out edges from complete graph.
+
+
+    # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # def select_canonical_lic(plate_set):
+    #     '''Select and return the canonical representative of a set of plates.
+    #     '''
+    #     return list(plate_set)[0]
+
+
+    # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # def populate_canonical_licenses(record_index, plates):
+    #     '''Refine the plate equivalents and select canoncial representatives.
+    #     '''
+    #     matches = matchiness.find_equivalence_classes(list(plates))
+
+    #     for plate_list in matches:
+
+    #         # old_thing_with_match_groups(plate_list)
+    #         refined_plate_list = refine_plate_equivalents(plate_list, record_index)
+
+    #         for plate_list_section in refined_plate_list:
+
+    #             # canonical_lic = list(plate_list_section)[0]
+    #             canonical_lic = select_canonical_lic(plate_list_section)
+    #             record_index['CANONICAL_LIC'][canonical_lic] = []
+
+    #             for plate in list(plate_list_section):
+
+    #                 for record in record_index['LIC'][plate]:
+    #                     record['canonical_lic'] = canonical_lic
+    #                     record['lic_equivalents'] = list(plate_list_section)
+
+    #                 record_index['CANONICAL_LIC'][canonical_lic].extend(
+    #                     record_index['LIC'][plate]
+    #                     )
+
+
+    # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # def old_thing_with_match_groups(plate_list):
+    #     '''obsolete.
+    #     '''
+    #     _ = plate_list  # Shut up, pylint.
+    #         # if len(plate_list) > 1:
+    #         #     multi_match_count += 1
+
+    #         #     # Dump match groups.
+    #         #     print '\n\n\n-----------------------------\n\n'
+    #         #     print 'group {}\t{}'.format(
+    #         #         multi_match_count, "\t".join(plate_list)
+    #         #         )
+
+    #         #     for plate in plate_list:
+
+    #         #         # if plate not in record_index_by_lic:
+    #         #         if plate not in record_index['LIC']:
+    #         #             # TODO: log a warning.
+    #         #             print '{}: No record'.format(plate)
+    #         #             continue
+
+    #         #         for record in record_index_by_lic[plate]:
+    #         #             print '{}\t{}\t{}\t{}\t{}'.format(
+    #         #                 record['raw_lic'],
+    #         #                 record['raw_make'],
+    #         #                 record['raw_model'],
+    #         #                 record['raw_color'],
+    #         #                 record['raw_date'],
+    #         #                 )
+    #         #     print
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -752,9 +1102,14 @@ def postprocess_output_data(output_data):
 def process_workbook(args):
     '''Carry out workbook processing. 
     '''
-    log_records = inprocess_xls(args)
+    # log_records = inprocess_xls(args)
     # date_range, plates, record_index = inprocess_xls(args)
 
+    log_parser = csv_parking_log.LogParser(args.input_file, days=args.days)
+    log_parser.parse()
+    log_parser.dashboard_data()
+
+    exit()
     assert(False)
 
     # record_index['CANONICAL_LIC'] = {}

@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from datetime import timedelta
+import json
 import logging
 # Set default logging handler to avoid "No handler found" warnings.
 try:  # Python 2.7+
@@ -15,6 +16,8 @@ import os
 import re
 
 import xlrd
+
+import matchiness
 
 logging.getLogger(__name__).addHandler(NullHandler())
 
@@ -52,12 +55,28 @@ COL_INDICES = {
 
 # The log record type, based on the column in which the date is logged.
 RECORD_TYPE = {
-    5: 'guest_1',
-    6: 'guest_2',
-    7: 'guest_3',
-    8: 'guest_tow',
-    9: 'street_1',
-    10: 'street_tow',
+    # 5: 'guest_1',
+    # 6: 'guest_2',
+    # 7: 'guest_3',
+    # 8: 'guest_tow',
+    # 9: 'street_1',
+    # 10: 'street_tow',
+    COL_INDICES['OPEN_PARKING_1']: 'guest_1',
+    COL_INDICES['OPEN_PARKING_2']: 'guest_2',
+    COL_INDICES['OPEN_PARKING_3']: 'guest_3',
+    COL_INDICES['TOWDATE']: 'guest_tow',
+    COL_INDICES['STREET_PARKING_1']: 'street_1',
+    COL_INDICES['TOWDATE_2']: 'street_tow',
+    }
+
+# The general category of record, used for dashboard indicators.
+RECORD_CLASS = {
+    'guest_1': 'guest_parking',
+    'guest_2': 'guest_parking',
+    'guest_3': 'guest_parking',
+    'guest_tow': 'tow',
+    'street_1': 'street_parking',
+    'street_tow': 'tow',
     }
 
 # Date comparison is easier when we use "days since ref date" to compare.
@@ -76,6 +95,14 @@ DEFAULT_END_REFDT_OFFSET = 2 ** 16  # ~180 years in the future.
 STANDARD_DATE_FORMAT = '%Y-%m-%d'
 LOG_DATE_FORMAT = '%m.%d.%y'
 FILENAME_DATE_FORMAT = '%Y%m%d'
+
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+def _most_common_element(a_list):
+    '''Find the most common element of a list.'''
+    counts = [(x, a_list.count(x)) for x in set(a_list)]
+    max_count = max([c[1] for c in counts])
+    return [c[0] for c in counts if c[1] == max_count][0]
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -291,6 +318,160 @@ class LogRecord(object):
         logger_name = '%s.%s' % (__name__, self.__class__.__name__)
         self._logger = logging.getLogger(logger_name)
 
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def to_dict(self):
+        '''Return instance representation as a dictionary.'''
+
+        return {
+            'plate': self.plate,
+            'canonical_plate': self.canonical_plate,
+            'date': self.date,
+            'record_type': self.record_type,
+            'make': self.make,
+            'model': self.model,
+            'location': self.location,
+            'refdt_offset': self.refdt_offset,
+            }
+
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+def get_plate_record_sets(canonical_plate_log_records):
+    '''Create a list of PlateRecordSet instances from log records.
+
+    Arguments:
+
+        canonical_plate_log_records (list):
+            A list of ``LogRecord`` instances that share a common
+            ``canonical_plate`` value.
+    '''
+
+    logger = logging.getLogger(__name__)
+
+    records = sorted(
+        canonical_plate_log_records,
+        key=lambda r: r.refdt_offset
+        )
+    canonical_plates = set([r.canonical_plate for r in records])
+
+    if len(canonical_plates) > 1:
+        err_msg = (
+            'PlateRecordSet.get_plate_record_sets():'
+            ' canonical_plate must be unique; found: %s'
+            )
+        logger.error(err_msg, list(canonical_plates))
+        raise ValueError(err_msg % list(canonical_plates))
+
+    plate_record_sets = []
+
+    # Walk through records, finding groups with common
+    # refdt_offset. Since we sorted, this is straightforward.
+    record_index = 0
+    while record_index < len(records):
+
+        current_refdt_offset = records[record_index].refdt_offset
+        current_record_set = []
+
+        while(
+                record_index < len(records) and
+                records[record_index].refdt_offset == current_refdt_offset
+                ):  # pylint: disable=bad-continuation
+
+            current_record_set.append(records[record_index])
+            record_index += 1
+
+        new_set = PlateRecordSet(current_record_set)
+        plate_record_sets.append(new_set)
+
+    return plate_record_sets
+
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+class PlateRecordSet(object):
+    '''A collection of log records for a plate on a single date.
+
+    The ``PlateRecordSet`` class groups a collection of plate records
+    on a common date, managing cases where the same plate might appear
+    more than once due to a number of circumstances:
+
+        *   A tow record as well as a log record.
+        *   Mistranscription errors in transferring data to Excel.
+        *   Canonicalization collisions between what should be
+            separated plates.
+    '''
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def __init__(self, records):
+        '''Initialize one LogRecord instance.'''
+
+        logger_name = '%s.%s' % (__name__, self.__class__.__name__)
+        self._logger = logging.getLogger(logger_name)
+
+        self.log_records = records
+
+        self.canonical_plate = None
+        self.date = None
+        self.refdt_offset = None
+        self.record_class = {
+            'guest_parking': False,
+            'street_parking': False,
+            'tow': False
+            }
+
+        self._extract_canonical_plate(records)
+        self._extract_date(records)  # This also sets refdt_offset.
+        self._extract_record_class(records)
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def _extract_canonical_plate(self, records):
+        '''Set canonical_plate after ensuring it is unique across records.'''
+
+        canonical_plates = set([r.canonical_plate for r in records])
+
+        if len(canonical_plates) > 1:
+            err_msg = (
+                'multiple canonical plates found when initializing'
+                'PlateRecordSet: %s'
+                )
+            self._logger.error(err_msg, list(canonical_plates))
+            raise ValueError(err_msg % list(canonical_plates))
+
+        self.canonical_plate = list(canonical_plates)[0]
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def _extract_date(self, records):
+        '''Set refdt_offset after ensuring it is unique across records.'''
+
+        refdt_offsets = set([r.refdt_offset for r in records])
+
+        if len(refdt_offsets) > 1:
+            err_msg = (
+                'multiple dates found when initializing'
+                'PlateRecordSet: %s'
+                )
+            self._logger.error(err_msg, list(refdt_offsets))
+            raise ValueError(err_msg % list(refdt_offsets))
+
+        self.refdt_offset = list(refdt_offsets)[0]
+        self.date = records[0].date
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def _extract_record_class(self, records):
+        '''Mark the record classes found in this group.'''
+
+        for record in records:
+            self.record_class[RECORD_CLASS[record.record_type]] = True
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def to_dict(self):
+        '''Return instance representation as a dictionary.'''
+
+        return {
+            'canonical_plate': self.canonical_plate,
+            'date': self.date,
+            'refdt_offset': self.refdt_offset,
+            'record_class': self.record_class,
+            'log_records': [record.to_dict() for record in self.log_records],
+            }
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 class LogParser(object):
@@ -350,6 +531,7 @@ class LogParser(object):
         logger_name = '%s.%s' % (__name__, self.__class__.__name__)
         self._logger = logging.getLogger(logger_name)
 
+        # The path to the log file.
         self.filepath = filepath
 
         # We set the "real" values in _initialize_refdt_offset_boundaries().
@@ -368,7 +550,20 @@ class LogParser(object):
         # adding/subtracting days as appropriate.
         self._initialize_refdt_offset_boundaries()
 
+        # Individual LogRecord instances creeated from the log.
         self.log_records = []
+
+        # An index, by plate, of all log records for that plte.
+        self._plate_index = {}
+
+        # An index, by canonical plate, of all log records for that
+        # canonical plate.
+        self._canonical_plate_index = {}
+
+        # An index, by canonical plate, of all plate record sets for
+        # a given canonical plate. Each plate record set contains all
+        # log records for the canonical plate on a given day.
+        self._plate_record_set_index = {}
 
         # Set the offset from REF_DATETIME to the latest date that is
         # considered valid. Typically either a date determined from
@@ -377,13 +572,11 @@ class LogParser(object):
             os.path.basename(filepath)
             )
 
-        # - - - - - - - - - - - - - - - -
         # Parsing statistics.
         self.rows_parsed = 0
         self.header_rows_skipped = 0
         self.rows_inprocessed = 0
 
-        # - - - - - - - - - - - - - - - -
         # Record statistics updated as the file is parsed.
         # - - - - - - - - - - - - - - - -
         # Records with dates that are invalid will still be
@@ -469,91 +662,6 @@ class LogParser(object):
         self._logger.debug('ending offset: %s', self.end_refdt_offset)
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def parse(self):
-        '''Parse the instance's parking log file.'''
-
-        self._logger.debug('parsing log file %s', self.filepath)
-        workbook = xlrd.open_workbook(self.filepath)
-
-        sheet = workbook.sheet_by_name('Sheet1')
-        if not _is_header_row(sheet.row(0)):
-            err_msg = '%s: sheet %s row 0 is not a header row'
-            self._logger.error(err_msg, self.filepath, sheet.name)
-            raise CsvParkingLogStructureError(
-                err_msg % (self.filepath, sheet.name)
-                )
-
-        number_of_rows = sheet.nrows
-        self._logger.debug('rows: %s', number_of_rows)
-
-        # Just to be sure these are reset.
-        self.rows_parsed = 0
-        self.header_rows_skipped = 0
-        self.rows_inprocessed = 0
-
-        for row_num in range(number_of_rows):
-            self.rows_parsed += 1
-            record_row = sheet.row(row_num)
-
-            if not record_row[COL_INDICES['LIC']].value:
-                continue
-
-            if _is_header_row(record_row):
-                self.header_rows_skipped += 1
-                continue
-
-            self.rows_inprocessed += 1
-
-            _force_float_to_int(record_row, 'LIC')
-            _force_float_to_int(record_row, 'MODEL')
-
-            self.create_row_records(record_row)
-
-        self._log_parse_statistics()
-
-        if self.days and not (self.start_date or self.end_date):
-            # This will also dynamically calculate start and end dates.
-            self._prune_to_dynamic_date_bounds()
-
-        self._log_parse_statistics()
-
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def create_row_records(self, record_row):
-        '''Create LogRecord instances for the dates logged in this row.
-        '''
-        # Add a record for each of these potential date fields
-        # that have a value defined.
-        for event_field_index in [
-                COL_INDICES['OPEN_PARKING_1'],
-                COL_INDICES['OPEN_PARKING_2'],
-                COL_INDICES['OPEN_PARKING_3'],
-                COL_INDICES['TOWDATE'],
-                COL_INDICES['STREET_PARKING_1'],
-                COL_INDICES['TOWDATE_2'],
-                ]:  # pylint: disable=bad-continuation
-
-            record_type = RECORD_TYPE[event_field_index]
-
-            # If a value is present for this type of event, it should be
-            # the date the event was logged.
-            if record_row[event_field_index].value:
-
-                record_date = record_row[event_field_index].value
-                new_record = LogRecord(
-                    record_row[COL_INDICES['LIC']].value,
-                    record_date,
-                    record_type,
-                    make=record_row[COL_INDICES['MAKE']].value,
-                    model=record_row[COL_INDICES['MODEL']].value,
-                    location=record_row[COL_INDICES['LOCATION']].value
-                    )
-
-                if self._validate_refdt_offset(new_record):
-                    self._update_validated_record_bounds(new_record)
-                    self.log_records.append(new_record)
-                    self.records_inprocessed += 1
-
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def _validate_refdt_offset(self, log_record):
         '''Assess refdt offset validity and update tracking bounds.
 
@@ -615,6 +723,9 @@ class LogParser(object):
         being accepted and turned into parsed records.
 
         '''
+        # logger = logging.getLogger(__name__)
+        # if log_record.refdt_offset == 7628:
+        #     logger.warning('we hit it...')
         if (
                 not self.first_record_refdt_offset
                 or log_record.refdt_offset < self.first_record_refdt_offset
@@ -632,6 +743,9 @@ class LogParser(object):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def _prune_to_dynamic_date_bounds(self):
         '''Discard records outside date bounds based only on days.
+
+        This method updates all the output data fields affected by
+        the pruning.
         '''
         self._logger.info('pruning to dynamic date bounds...')
 
@@ -646,6 +760,9 @@ class LogParser(object):
         # We have to calcualate these anew, so we reset them here.
         self.first_record_date = None
         self.first_record_refdt_offset = 0
+        self.last_record_date = None
+        self.last_record_refdt_offset = 0
+        self._plate_index = {}
 
         # Comprehension selector that also offsets necessary records.
         def in_bounds(log_record):
@@ -653,11 +770,23 @@ class LogParser(object):
             if not self._check_offset_in_bounds(log_record):
                 self.records_out_of_date += 1
                 return False
-
             self._update_validated_record_bounds(log_record)
             return True
 
+        # Remove log_record entries that are out of bounds.
         self.log_records = [r for r in self.log_records if in_bounds(r)]
+
+        # Add to plate index.
+        for log_record in self.log_records:
+            _ = self._plate_index.setdefault(log_record.plate, [])
+            self._plate_index[log_record.plate].append(log_record)
+
+        self._logger.debug(
+            'first record offset set to: %s', self.first_record_refdt_offset
+            )
+        self._logger.debug(
+            'last record offset set to: %s', self.last_record_refdt_offset
+            )
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def _set_dynamic_date_bounds(self):
@@ -688,6 +817,7 @@ class LogParser(object):
             )
 
         self.end_refdt_offset = self.latest_valid_refdt_offset_found + 1
+        # self.last_record_refdt_offset = self.end_refdt_offset
         self.end_date = _to_yyyy_mm_dd(self.end_refdt_offset)
 
         self.start_refdt_offset = self.end_refdt_offset - self.days
@@ -696,11 +826,73 @@ class LogParser(object):
         self._logger.debug(
             'starting offset set to: %s', self.start_refdt_offset
             )
+        # self._logger.debug(
+        #     'first record offset set to: %s', self.first_record_refdt_offset
+        #     )
         self._logger.debug('start date set to: %s', self.start_date)
+
         self._logger.debug(
             'ending offset set to: %s', self.end_refdt_offset
             )
+        # self._logger.debug(
+        #     'last record offset set to: %s', self.last_record_refdt_offset
+        #     )
         self._logger.debug('end date set to: %s', self.end_date)
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def _canonicalize_plates(self):
+        '''Find canonical plate representatives and create plate groups.
+
+        The canonical representative will be the most commonly
+        occurring plate among records that are equivalent as
+        determined by matchiness.
+
+        '''
+
+        matches = matchiness.find_equivalence_classes(
+            self._plate_index.keys()
+            )
+
+        # print '--------'
+        for plate_list in matches:
+            # Get all log records with a plate in matches.
+            matching_records = []
+            for plate in plate_list:
+                matching_records.extend(self._plate_index[plate])
+
+            canonical_plate = _most_common_element(
+                [r.plate for r in matching_records]
+                )
+
+            # print [r.plate for r in matching_records]
+            for log_record in matching_records:
+                log_record.canonical_plate = canonical_plate
+                # print '{}\t{}'.format(
+                #     log_record.plate, log_record.canonical_plate
+                #     )
+            self._canonical_plate_index[canonical_plate] = matching_records
+
+        # print '-----------'
+        # print len(self.log_records)
+        # print sum([len(x) for x in self._plate_index.values()])
+        # print sum([len(x) for x in self._canonical_plate_index.values()])
+        # print '-----------'
+
+        # exit()
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def _consolidate_date_records(self):
+        '''Combine multiple records for the same date without information loss.
+
+        Multiple records may be recorded on one date for the same
+        canonical plate under a number of circumstances:
+        *   A tow record as well as a log record.
+        *   Mistranscription errors in transferring data to Excel.
+        *   Canonicalization collisions between what should be separated
+            plates.
+
+
+        '''
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def _log_parse_statistics(self):
@@ -760,3 +952,148 @@ class LogParser(object):
         #         'records in %s: %s',
         #         index_type, len(record_index[index_type])
         #         )
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def parse(self):
+        '''Parse the instance's parking log file.'''
+
+        self._logger.debug('parsing log file %s', self.filepath)
+        workbook = xlrd.open_workbook(self.filepath)
+
+        sheet = workbook.sheet_by_name('Sheet1')
+        if not _is_header_row(sheet.row(0)):
+            err_msg = '%s: sheet %s row 0 is not a header row'
+            self._logger.error(err_msg, self.filepath, sheet.name)
+            raise CsvParkingLogStructureError(
+                err_msg % (self.filepath, sheet.name)
+                )
+
+        number_of_rows = sheet.nrows
+        self._logger.debug('rows: %s', number_of_rows)
+
+        # Just to be sure these are reset.
+        self.rows_parsed = 0
+        self.header_rows_skipped = 0
+        self.rows_inprocessed = 0
+
+        for row_num in range(number_of_rows):
+            self.rows_parsed += 1
+            record_row = sheet.row(row_num)
+
+            if not record_row[COL_INDICES['LIC']].value:
+                continue
+
+            if _is_header_row(record_row):
+                self.header_rows_skipped += 1
+                continue
+
+            self.rows_inprocessed += 1
+
+            _force_float_to_int(record_row, 'LIC')
+            _force_float_to_int(record_row, 'MODEL')
+
+            self.create_row_records(record_row)
+
+        self._log_parse_statistics()
+
+        if self.days and not (self.start_date or self.end_date):
+            # This will also dynamically calculate start and end dates.
+            self._prune_to_dynamic_date_bounds()
+
+        self._canonicalize_plates()
+
+        self._log_parse_statistics()
+
+        for plate, log_records in self._canonical_plate_index.iteritems():
+            self._plate_record_set_index[plate] = get_plate_record_sets(
+                log_records
+                )
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def create_row_records(self, record_row):
+        '''Create LogRecord instances for the dates logged in this row.
+        '''
+
+        plate = record_row[COL_INDICES['LIC']].value
+
+        # Add a record for each of these potential date fields
+        # that have a value defined.
+        for event_field_index in [
+                COL_INDICES['OPEN_PARKING_1'],
+                COL_INDICES['OPEN_PARKING_2'],
+                COL_INDICES['OPEN_PARKING_3'],
+                COL_INDICES['TOWDATE'],
+                COL_INDICES['STREET_PARKING_1'],
+                COL_INDICES['TOWDATE_2'],
+                ]:  # pylint: disable=bad-continuation
+
+            record_type = RECORD_TYPE[event_field_index]
+
+            # If a value is present for this type of event, it should
+            # be the date the event was logged.
+            if record_row[event_field_index].value:
+
+                record_date = record_row[event_field_index].value
+
+                new_record = LogRecord(
+                    plate,
+                    record_date,
+                    record_type,
+                    make=record_row[COL_INDICES['MAKE']].value,
+                    model=record_row[COL_INDICES['MODEL']].value,
+                    location=record_row[COL_INDICES['LOCATION']].value
+                    )
+
+                if self._validate_refdt_offset(new_record):
+                    self._update_validated_record_bounds(new_record)
+                    self.log_records.append(new_record)
+                    self.records_inprocessed += 1
+                    _ = self._plate_index.setdefault(
+                        new_record.plate, []
+                        )
+                    self._plate_index[new_record.plate].append(new_record)
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def dashboard_data(self):
+        '''Create a structure with data for the dashboard.
+        [
+        "date_range"
+            "first_record_date",
+            "first_record_refdt_offset",
+            "last_record_date",
+            "last_record_refdt_offset"
+        "records_by_lic"
+            [PLATE]
+                "canonical_lic",
+                "lic_equivalents",
+                "records",
+                    []
+                        "canonical_lic",
+                        "days_since_20000101",
+                        "five_day_total",
+                        "lic_equivalents",
+                        "raw_color",
+                        "raw_date",
+                        "raw_lic",
+                        "raw_location",
+                        "raw_make",
+                        "raw_model"
+                "window_total"
+                    []
+                        "key", "value"
+        ]
+        '''
+        dashboard_data = {
+            'date_range': {
+                'first_record_date': self.first_record_date,
+                'first_record_refdt_offset': self.first_record_refdt_offset,
+                'last_record_date': self.last_record_date,
+                'last_record_refdt_offset': self.last_record_refdt_offset,
+                },
+            'records_by_lic': {
+                k: [u.to_dict() for u in v]
+                for k, v in self._plate_record_set_index.iteritems()
+                }
+            }
+        with open('/tmp/test_dump', 'w') as fptr:
+            json.dump(dashboard_data, fptr)
