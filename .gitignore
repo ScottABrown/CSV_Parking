@@ -90,3 +90,11 @@ ENV/
 
 # Data files for CSV parking.
 canonical_lic.json*
+output/*.json
+
+# Symbolic link to "real logs" storage location.
+Logs
+
+# The output file for csv_parking.py
+creekside_parking_data.json
+
