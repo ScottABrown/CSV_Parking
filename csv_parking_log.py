@@ -953,6 +953,7 @@ class LogParser(object):
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def _log_parse_statistics(self):
+        '''Log statistics on the parsed data.'''
 
         self._logger.debug(
             'excel rows processed: %s',
@@ -1139,36 +1140,37 @@ class LogParser(object):
                     self._plate_index[new_record.plate].append(new_record)
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def write_dashboard_data(self, filepath):
+    def dashboard_data(self):
         '''Create a structure with data for the dashboard.
-        [
-        "date_range"
-            "first_record_date",
-            "first_record_refdt_offset",
-            "last_record_date",
-            "last_record_refdt_offset"
-        "records_by_lic"
-            [PLATE]
-                "canonical_lic",
-                "lic_equivalents",
-                "records",
-                    []
-                        "canonical_lic",
-                        "days_since_20000101",
-                        "five_day_total",
-                        "lic_equivalents",
-                        "raw_color",
-                        "raw_date",
-                        "raw_lic",
-                        "raw_location",
-                        "raw_make",
-                        "raw_model"
-                "window_total"
-                    []
-                        "key", "value"
-        ]
+        {
+            "date_range"
+                "first_record_date",
+                "first_record_refdt_offset",
+                "last_record_date",
+                "last_record_refdt_offset"
+            "records_by_lic"
+                [PLATE]
+                    "canonical_lic",
+                    "lic_equivalents",
+                    "records",
+                        []
+                            "canonical_lic",
+                            "days_since_20000101",
+                            "five_day_total",
+                            "lic_equivalents",
+                            "raw_color",
+                            "raw_date",
+                            "raw_lic",
+                            "raw_location",
+                            "raw_make",
+                            "raw_model"
+                    "window_total"
+                        []
+                            "key", "value"
+            }
         '''
-        write_dashboard_data = {
+
+        dashboard_data = {
             'date_range': {
                 'first_record_date': self.first_record_date,
                 'first_record_refdt_offset': self.first_record_refdt_offset,
@@ -1188,5 +1190,6 @@ class LogParser(object):
                 for plate, v in self._plate_record_set_index.iteritems()
                 }
             }
-        with open(filepath, 'w') as fptr:
-            json.dump(write_dashboard_data, fptr)
+
+        # This may be consumed downstream.
+        return dashboard_data
