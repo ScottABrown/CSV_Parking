@@ -1,0 +1,122 @@
+
+
+locally:
+scp -i ~/Documents/AWS/Keys/MySecondServerKey.pem csv_parking.py ec2-user@54.201.253.152:~/csv_parking.py
+scp -i ~/Documents/AWS/Keys/MySecondServerKey.pem matchiness.py ec2-user@54.201.253.152:~/matchiness.py
+history | grep scp
+ scp -i ~/Documents/AWS/Keys/MySecondServerKey.pem   ec2-user@54.201.253.152:~/CSV_Parking.zip CSV_Parking.zip
+ scp -i ~/Documents/AWS/Keys/MySecondServerKey.pem   ec2-user@54.201.253.152:~/CSV_Parking.zip CSV_Parking.zip
+ scp -i ~/Documents/AWS/Keys/MySecondServerKey.pem   ec2-user@54.201.253.152:~/CSV_Parking.zip CSV_Parking.zip
+history | grep scp
+scp -i ~/Documents/AWS/Keys/MySecondServerKey.pem csv_parking.py ec2-user@54.201.253.152:~/csv_parking.py
+ scp -i ~/Documents/AWS/Keys/MySecondServerKey.pem   ec2-user@54.201.253.152:~/CSV_Parking.zip CSV_Parking.zip
+scp -i ~/Documents/AWS/Keys/MySecondServerKey.pem csv_parking.py ec2-user@54.201.253.152:~/csv_parking.py
+ scp -i ~/Documents/AWS/Keys/MySecondServerKey.pem   ec2-user@54.201.253.152:~/CSV_Parking.zip CSV_Parking.zip
+history | grep scp
+
+
+On EC2:
+
+aws lambda get-policy --function-name CsvParkingIncoming --profile najeda
+aws --region us-west-2 lambda get-policy --function-name CsvParkingIncoming --profile najeda
+
+grep import csv_parking.py 
+virtualenv ~/CSV_Parking
+python -c 'import matchiness'
+python -c 'import xlrd'
+source ~/CSV_Parking/bin/activate
+python -c 'import matchiness'
+
+python ./csv_parking.py -h
+
+zip -d CSV_Parking.zip csv_parking.py 
+zip -g CSV_Parking.zip csv_parking.py 
+
+
+
+aws lambda create-function \
+--region us-west-2 \
+--function-name CsvParkingIncoming \
+--zip-file fileb://CSV_Parking.zip \
+--role arn:aws:iam::888509657955:role/lambda-csv-parking-upload \
+--handler csv_parking.s3_event_handler \
+--runtime python2.7 \
+--profile najeda \
+--timeout 60 \
+--memory-size 1024
+
+
+
+aws lambda add-permission \
+--function-name CsvParkingIncoming \
+--region us-west-2 \
+--statement-id CsvParkingIncomingAction \
+--action "lambda:InvokeFunction" \
+--principal s3.amazonaws.com \
+--source-arn arn:aws:s3:::creekside-parking-dropbox \
+--source-account 888509657955 \
+--profile najeda
+
+
+aws lambda get-policy \
+--function-name CsvParkingIncoming \
+--profile najeda
+
+
+{
+    "Id": "Policy1479580734921",
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "Stmt1479580732088",
+            "Action": [
+                "s3:PutObjectAcl"
+            ],
+            "Effect": "Allow",
+            "Resource": "arn:aws:s3:::creekside-parking/*",
+            "Condition": {
+                "ArnEquals": {
+                    "aws:SourceArn": "arn:aws:lambda:us-west-2:888509657955:function:CsvParkingIncoming"
+                }
+            },
+            "Principal": "*"
+        }
+    ]
+}
+
+
+{
+    "Id": "Policy1479580734921",
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "Stmt1479580732088",
+            "Action": [
+                "s3:PutObjectAcl"
+            ],
+            "Effect": "Allow",
+            "Resource": ["arn:aws:s3:::creekside-parking", "arn:aws:s3:::creekside-parking/*"],
+            "Principal": {
+                "AWS": ["arn:aws:lambda:us-west-2:888509657955:function:CsvParkingIncoming"]
+            }
+        }
+    ]
+}
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": ["arn:aws:iam::111122223333:user/Alice",
+                "arn:aws:iam::111122223333:root"]
+      },
+      "Action": "s3:*",
+      "Resource": ["arn:aws:s3:::my_bucket",
+                   "arn:aws:s3:::my_bucket/*"]
+    }
+  ]
+}
+
+
