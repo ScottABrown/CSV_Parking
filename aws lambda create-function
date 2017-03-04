@@ -1,18 +1,22 @@
 
+SET ENV:
+EC2_IP=###.###.###.###
+
+SSH:
+ ssh -i ~/Documents/AWS/Keys/MySecondServerKey.pem ec2-user@$EC2_IP
+
 
 locally:
-scp -i ~/Documents/AWS/Keys/MySecondServerKey.pem csv_parking.py ec2-user@54.201.253.152:~/csv_parking.py
-scp -i ~/Documents/AWS/Keys/MySecondServerKey.pem matchiness.py ec2-user@54.201.253.152:~/matchiness.py
-history | grep scp
- scp -i ~/Documents/AWS/Keys/MySecondServerKey.pem   ec2-user@54.201.253.152:~/CSV_Parking.zip CSV_Parking.zip
- scp -i ~/Documents/AWS/Keys/MySecondServerKey.pem   ec2-user@54.201.253.152:~/CSV_Parking.zip CSV_Parking.zip
- scp -i ~/Documents/AWS/Keys/MySecondServerKey.pem   ec2-user@54.201.253.152:~/CSV_Parking.zip CSV_Parking.zip
-history | grep scp
-scp -i ~/Documents/AWS/Keys/MySecondServerKey.pem csv_parking.py ec2-user@54.201.253.152:~/csv_parking.py
- scp -i ~/Documents/AWS/Keys/MySecondServerKey.pem   ec2-user@54.201.253.152:~/CSV_Parking.zip CSV_Parking.zip
-scp -i ~/Documents/AWS/Keys/MySecondServerKey.pem csv_parking.py ec2-user@54.201.253.152:~/csv_parking.py
- scp -i ~/Documents/AWS/Keys/MySecondServerKey.pem   ec2-user@54.201.253.152:~/CSV_Parking.zip CSV_Parking.zip
-history | grep scp
+upload modules:
+scp -i ~/Documents/AWS/Keys/MySecondServerKey.pem csv_parking.py ec2-user@$EC2_IP:~/csv_parking.py
+scp -i ~/Documents/AWS/Keys/MySecondServerKey.pem csv_parking_log.py ec2-user@$EC2_IP:~/csv_parking_log.py
+scp -i ~/Documents/AWS/Keys/MySecondServerKey.pem matchiness.py ec2-user@$EC2_IP:~/matchiness.py
+download zip archive:
+scp -i ~/Documents/AWS/Keys/MySecondServerKey.pem ec2-user@$EC2_IP:~/CSV_Parking.zip CSV_Parking.zip
+
+ZIP:
+zip CSV_Parking.zip -d csv_parking.py 
+zip CSV_Parking.zip -g csv_parking.py csv_parking_log.py 
 
 
 On EC2:
@@ -29,8 +33,8 @@ python -c 'import matchiness'
 
 python ./csv_parking.py -h
 
-zip -d CSV_Parking.zip csv_parking.py 
-zip -g CSV_Parking.zip csv_parking.py 
+zip -d CSV_Parking.zip csv_parking.py
+zip -g CSV_Parking.zip csv_parking.py
 
 
 
