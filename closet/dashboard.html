@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+
+<head>
+<style>
+
+body {
+  background-color: #e0e0ec;
+  }
+
+.container {
+  margin: 50px 24px;
+  padding: 10px;
+  /*width: 210px;*/
+  /*border: 1px solid #bbbbff;*/
+  }
+.playground {
+  /*border: 1px solid gray;*/
+  }
+
+
+</style>
+</head>
+
+<!-- - - - - - - - BEGIN BODY - - - - - - - -->
+
+<body>
+
+<div class="container">
+  <svg class='playground' width="1200" height="3600">
+
+    </svg>
+  </div>
+
+<script src="//d3js.org/d3.v3.min.js"></script>
+
+<script>
+
+  // Data dimensions.
+  // var DATASET_ROWS = 10;
+  // var DATASET_COLS = 91;
+  var DATASET_ROWS = 2;
+  var DATASET_COLS = 21;
+
+  // The number of days in a "lookback window"
+  WINDOW_DAYS = 30
+
+  // Cell dimensions.
+  var CELL_WIDTH = 8;
+  var CELL_HEIGHT = 16;
+
+  // Vertical space on the top for the column labels.
+  var COL_LABEL_HEIGHT = 40;
+
+  // Leading space on the left for the row labels.
+  var ROW_LABEL_WIDTH = 150;
+
+  // Space for columns summarize n-day totals.
+  var TOTALS_COL_WIDTH = 20;
+  var TOTALS_COL_GROUP_SPACE = 12;
+
+  // Total amount of space before grid columns begin.
+  var GRID_LEAD_SPACE = ROW_LABEL_WIDTH + 6 * TOTALS_COL_WIDTH + 3 * TOTALS_COL_GROUP_SPACE
+
+  // Vertical spacing between rows.
+  var ROW_SPACE = 4;
+
+  // Rows are grouped vertically into groups of three.
+  var ROW_GROUP_SIZE = 3;
+  var ROW_GROUP_SPACE = 4
+
+  // Cells are grouped horizontally into weeks.
+  var COL_GROUP_SIZE = 7;
+  var COL_GROUP_SPACE = 6
+
+  // For use in generating random names.
+  var NAME_CHARS = [
+    "A","B","C","D","E","F","G","H","I","J","K","L","M",
+    "N","O","P","Q","R","S","T","U","V","W","X","Y","Z",
+    "0","1","2","3","4","5","6","7","8","9"
+    ];
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function randomName(name_length) {
+
+    var name = "";
+    var choice_count = NAME_CHARS.length;
+
+    for (var posn = 0; posn < name_length; posn++) {
+      name += NAME_CHARS[Math.floor(choice_count * Math.random())];
+      }
+    return name;
+    }
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function testData() {
+    // The test data set will look like:
+    // {
+    //   'A9GU4KPW': {
+    //     'records': ['key1': 'val1', 'key2': 'val2',...]
+    //     },
+    //   'MJS2H5JA': {
+    //     'records': ['key1': 'val1', 'key2': 'val2',...]
+    //     },
+    //   ...
+    //   }
+    var data = new Array();
+    var data_freq = 0.2;
+
+    for (var row = 0; row < DATASET_ROWS; row++) {
+
+      data.push(new Object());
+      var name = randomName(8);
+      data[row] = {
+        'name': name,
+        'records': []
+        };
+
+      for (var col = 0; col < DATASET_COLS; col++) {
+        if (Math.random() < data_freq) {
+          data[row]['records'].push({
+            'column': col,
+            'event': true
+            });
+          }
+
+        }
+
+      }
+
+    return data;
+    }
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function sort_alpha(a, b) {
+    if (a < b) {return -1;}
+    if (a >b) {return 1;}
+    return 0;
+    }
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function row_y (row_n) {
+    return row_n * (CELL_HEIGHT + ROW_SPACE)
+      + Math.floor(row_n / ROW_GROUP_SIZE) * ROW_GROUP_SPACE
+      + COL_LABEL_HEIGHT;
+    }
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function grid_column_x (column_n) {
+    return column_n * CELL_WIDTH
+      + Math.floor(column_n / COL_GROUP_SIZE) * COL_GROUP_SPACE
+      + GRID_LEAD_SPACE;
+    }
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function window_column_x (column_name, group_name) {
+    // return column_n * CELL_WIDTH
+    //   + Math.floor(column_n / COL_GROUP_SIZE) * COL_GROUP_SPACE
+    //   + GRID_LEAD_SPACE;
+    }
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Create a "dummy" array of length ``columns`` to force d3 to draw the
+  // cells in each row of the grid.
+  function gridRowPlaceholder(columns) {
+    var row = new Array();
+    for (var col = 0; col < columns; col++){row.push(true);}
+
+    return row;
+    }
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function gridData() {
+    var data = new Array();
+    var xpos = 1; //starting xpos and ypos at 1 so the stroke will show when we make the grid below
+    var ypos = 1;
+    var click = 0;
+
+    var offset = 0;
+
+    // iterate for rows 
+    for (var row = 0; row < DATASET_ROWS; row++) {
+      data.push( new Array() );
+
+      // iterate for cells/columns inside rows
+      for (var column = 0; column < DATASET_COLS; column++) {
+        data[row].push({
+          x: grid_column_x(column),
+          y: ypos,
+          width: CELL_WIDTH,
+          height: CELL_HEIGHT,
+          click: click
+          })
+        }
+      ypos += CELL_HEIGHT + ROW_SPACE;
+
+      }
+ 
+    return data;
+    }
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  function refreshGrid(gridData, recordData) {
+
+    // console.log(recordData);
+
+    var lic_index = recordData.records_by_lic;
+    // plates is only used to iterate through lic_index.
+    var plates = Object.keys(lic_index);
+
+    var lic_records = new Array();
+    for (lic_num = 0; lic_num < plates.length; lic_num++) {
+      if (
+        (lic_index[plates[lic_num]]['window_total']['logged'][3 * WINDOW_DAYS] >= 2)
+        && (lic_index[plates[lic_num]]['window_total']['logged'][WINDOW_DAYS] >= 1)
+        ) { 
+        lic_records.push(lic_index[plates[lic_num]]);
+        }
+      }
+    console.log(lic_records[0])
+    lic_records.sort(function(a, b) {
+      return sort_alpha(a['canonical_lic'], b['canonical_lic']); 
+      })
+
+    var date_range = recordData.date_range;
+
+    var row_count = lic_records.length;
+    var col_count = (
+      date_range.last_record_refdt_offset
+        - date_range.first_record_refdt_offset
+        + 1
+      );
+
+    var windowTypeKeys = ['logged', 'logged', 'logged', 'last_five', 'last_five', 'last_five']
+    // windowKeys = ['30', '60', '90', '30', '60', '90']
+    var windowKeys = [
+      3 * WINDOW_DAYS, 2 * WINDOW_DAYS, 1 * WINDOW_DAYS,
+      3 * WINDOW_DAYS, 2 * WINDOW_DAYS, 1 * WINDOW_DAYS
+      ]
+
+    var playground = d3.select('.playground');
+
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+    // Laying down the column headers.
+    //
+    // Caution: Hackery.
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+    var col_header_1_data = [
+      ['Logged', ROW_LABEL_WIDTH + 2 * TOTALS_COL_WIDTH + 1 * TOTALS_COL_GROUP_SPACE, 'middle', '12px', '-.8em'],
+      ['3/5', ROW_LABEL_WIDTH + 5 * TOTALS_COL_WIDTH + 2 * TOTALS_COL_GROUP_SPACE, 'middle', '12px', '-.8em'],
+      ]
+
+    var col_headers_1 = playground.selectAll("column-header-1")
+      .data(col_header_1_data)
+      .enter().append("text")
+      .attr("class", "column-header-1")
+      .attr("x", function(d, i) {return col_header_1_data[i][1];})
+      .attr("y", COL_LABEL_HEIGHT - 28)
+      .attr("dx", function(d, i) { return col_header_1_data[i][4]; })
+      // .attr("dy", "-1.0em")
+      .attr("text-anchor", function(d, i) { return col_header_1_data[i][2]; })
+      // .attr("dominant-baseline", "alphabetic")
+      .style("font-family", "sans-serif")
+      .style("font-size", function(d, i) { return col_header_1_data[i][3]; })
+      .style("text-anchor", "left")
+      .style("fill", "#33b")
+      .text(function(d, i) { return col_header_1_data[i][0]; });
+
+    var col_header_2_data = [
+      ['Plate', ROW_LABEL_WIDTH, 'end', '18px', '-.3em'],
+      [ windowKeys[0], ROW_LABEL_WIDTH + 1 * TOTALS_COL_WIDTH + 1 * TOTALS_COL_GROUP_SPACE, 'end', '12px', '-.2em'],
+      [ windowKeys[1], ROW_LABEL_WIDTH + 2 * TOTALS_COL_WIDTH + 1 * TOTALS_COL_GROUP_SPACE, 'end', '12px', '-.2em'],
+      [ windowKeys[2], ROW_LABEL_WIDTH + 3 * TOTALS_COL_WIDTH + 1 * TOTALS_COL_GROUP_SPACE, 'end', '12px', '-.2em'],
+      [ windowKeys[0], ROW_LABEL_WIDTH + 4 * TOTALS_COL_WIDTH + 2 * TOTALS_COL_GROUP_SPACE, 'end', '12px', '-.2em'],
+      [ windowKeys[1], ROW_LABEL_WIDTH + 5 * TOTALS_COL_WIDTH + 2 * TOTALS_COL_GROUP_SPACE, 'end', '12px', '-.2em'],
+      [ windowKeys[2], ROW_LABEL_WIDTH + 6 * TOTALS_COL_WIDTH + 2 * TOTALS_COL_GROUP_SPACE, 'end', '12px', '-.2em'],
+      ['Logged Dates', GRID_LEAD_SPACE + 10, 'left', '18px', '-.3em']
+      ]
+
+    var col_headers_2 = playground.selectAll("column-header-2")
+      .data(col_header_2_data)
+      .enter().append("text")
+      .attr("class", "column-header-2")
+      .attr("x", function(d, i) {return col_header_2_data[i][1];})
+      .attr("y", COL_LABEL_HEIGHT - 12)
+      .attr("dx", function(d, i) { return col_header_2_data[i][4]; })
+      // .attr("dy", "-1.0em")
+      .attr("text-anchor", function(d, i) { return col_header_2_data[i][2]; })
+      // .attr("dominant-baseline", "alphabetic")
+      .style("font-family", "sans-serif")
+      .style("font-size", function(d, i) { return col_header_2_data[i][3]; })
+      .style("text-anchor", "left")
+      .style("fill", "#33b")
+      .text(function(d, i) { return col_header_2_data[i][0]; });
+
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+    // Laying down the date grid.
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+
+    var fakeGridData = new Array();
+    var placeholderRow = gridRowPlaceholder(col_count);
+    for (var row = 0; row < row_count; row++) {
+      fakeGridData.push(placeholderRow);
+      }
+
+    // Lay down one row of the grid.
+    var gridRow = playground.selectAll(".row")
+      .data(fakeGridData)
+      .enter().append("g")
+      .attr("class", "row");
+
+    // Lay down the cells of a row of the grid.
+    var gridCell = gridRow.selectAll(".grid-cell")
+      .data(function(d) {return d;})
+      .enter().append("rect")
+      .attr("class", "grid-cell")
+      .attr("x", function(d, i) {return grid_column_x(i);})
+      .attr("y", function(d, i, j) {return row_y(j);})
+      .attr("width", function(d) {return CELL_WIDTH;})
+      .attr("height", function(d) {return CELL_HEIGHT;})
+      .style("fill", "#fff")
+      .style("stroke", "#bbb");
+      // .on('click', function(d) {
+      //   d.click ++;
+      //   if ((d.click) % 4 == 0 ) { d3.select(this).style("fill","#fff"); }
+      //   if ((d.click) % 4 == 1 ) { d3.select(this).style("fill","#2C93E8"); }
+      //   if ((d.click) % 4 == 2 ) { d3.select(this).style("fill","#F56C4E"); }
+      //   if ((d.click) % 4 == 3 ) { d3.select(this).style("fill","#838690"); }
+      //   });
+
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+    // Data population.
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+
+    var recordDataRow = playground.selectAll(".record-row")
+      // .data(lic_records, function(d) {return d.canonical_lic;})
+      .data(lic_records);
+
+    var rowEnter = recordDataRow .enter().append("g")
+      .attr("class", "record-row");
+
+    // Populate the row labels.
+    rowEnter.append("text")
+      .attr("class", "label")
+      .attr("x", ROW_LABEL_WIDTH)
+      .attr("y", function(d, i) {return CELL_HEIGHT + row_y(i);})
+      .attr("dx", "-.4em")
+      .attr("dy", "-.3em")
+      .attr("text-anchor", "end")
+      .style("font-family", "sans-serif")
+      .style("font-size", "12px")
+      .style("text-anchor", "left")
+      .style("fill", "#33b")
+      .text(function(d) { return d.canonical_lic; });
+
+    // Populate the "totals for 30/60/90 days" columns.
+    for (total_col_n = 0; total_col_n < 6; total_col_n++) {
+      rowEnter.append("text")
+        .attr("class", "summary")
+        .attr(
+          "x",
+          ROW_LABEL_WIDTH
+            + (total_col_n + 1) * TOTALS_COL_WIDTH
+            + (1 + Math.floor(total_col_n / 3)) * TOTALS_COL_GROUP_SPACE
+          )
+        .attr("y", function(d, i) {return CELL_HEIGHT + row_y(i);})
+        .attr("dx", "-.4em")
+        .attr("dy", "-.3em")
+        .attr("text-anchor", "end")
+        .style("font-family", "sans-serif")
+        .style("font-size", "12px")
+        .style("text-anchor", "left")
+        .style("fill", "#33b")
+        .text(function(d) { 
+          return d.window_total[windowTypeKeys[total_col_n]][windowKeys[total_col_n]]; }
+          );
+        }
+
+    // Populate the grid cells showing log entries.
+    rowEnter.selectAll(".record-cell")
+      .data(function(d) {return d.records;})
+      .enter().append("rect")
+      .attr("class", "record-cell")
+      .attr("x", function(d) {
+        return grid_column_x(d.days_since_20000101 - date_range.first_record_refdt_offset);
+        })
+      .attr("y", function(d, i, j) {return row_y(j);})
+      .attr("width", CELL_WIDTH)
+      .attr("height", CELL_HEIGHT)
+      .style("fill", function(d){
+        if(d.five_day_total < 3) {return "blue";} return "red";
+        })
+      .style("stroke", "#bbb");
+
+    }
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  var gData = gridData();
+
+  console.log("Grid data:");
+  console.log(gData);
+
+  d3.json("canonical_lic.json", function(data) {
+    console.log("Test data:");
+    console.log(data);
+
+    refreshGrid(gData, data);
+    });
+
+  </script>
+
+
+</body>
+
+</html>
