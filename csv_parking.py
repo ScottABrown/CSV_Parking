@@ -175,9 +175,16 @@ def s3_event_handler(event, _):  # unused context parameter.
     '''Respond to an s3 event when called by AWS lambda.
     '''
 
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+
+    logger = logging.getLogger(__name__)
+    logger.info('processing s3 event...')
+
     s3_client = boto3.client('s3')
     parser = argument_parser()
 
+    logger.info('record count: %s', len(event['Records']))
     for record in event['Records']:
 
         inbucket = record['s3']['bucket']['name']
@@ -187,20 +194,39 @@ def s3_event_handler(event, _):  # unused context parameter.
         key = record['s3']['object']['key']
 
         download_path = '/tmp/{}{}'.format(uuid.uuid4(), key)
-        upload_path = os.path.join(os.sep, 'tmp', DEFAULT_JSON_OUTPUT_FILENAME)
+        dashboard_data_upload_path = os.path.join(
+            os.sep, 'tmp', DEFAULT_JSON_OUTPUT_FILENAME
+            )
+
+        logger.info('inbucket is %s', inbucket)
+        logger.info('outbucket is %s', outbucket)
+        logger.info('key is %s', key)
+        logger.info('download_path is %s', download_path)
+        logger.info(
+            'dashboard_data_upload_path is %s', dashboard_data_upload_path
+            )
 
         args = parser.parse_args(
             [
                 '-d', '91',
-                '-o', upload_path,
+                '-o', dashboard_data_upload_path,
                 download_path
                 ]
             )
 
         s3_client.download_file(inbucket, key, download_path)
         dashboard_data = process_workbook(args)
+        logger.info('date range processed: %s', dashboard_data['date_range'])
+
+        logger.info(
+            'writing dashboard data to %s...', dashboard_data_upload_path
+            )
+        with open(dashboard_data_upload_path, 'w') as fptr:
+            json.dump(dashboard_data, fptr)
+
         last_record_date = dashboard_data['date_range']['last_record_date']
 
+        # Define path locations.
         output_object_key = DEFAULT_JSON_OUTPUT_FILENAME
         output_archive_object_key = '/'.join([
             DEFAULT_OUTGONG_ARCHIVE_PREFIX,
@@ -210,10 +236,26 @@ def s3_event_handler(event, _):  # unused context parameter.
             DEFAULT_OUTGONG_ARCHIVE_PREFIX,
             '.'.join(['CreeksideParkingLog', last_record_date, 'xlsx'])
             ])
+        logger.info(
+            'output_archive_object_key is %s',
+            output_archive_object_key
+            )
+        logger.info(
+            'xlsx_archive_object_key is %s',
+            xlsx_archive_object_key
+            )
 
         # Create the active JSON data file.
+        logger.info(
+            'uploading %s to %s/%s...',
+            dashboard_data_upload_path, outbucket, output_object_key
+            )
         s3_client.upload_file(
-            upload_path, outbucket, output_object_key
+            dashboard_data_upload_path, outbucket, output_object_key
+            )
+        logger.info(
+            'making %s/%s publicly readable...',
+            outbucket, output_object_key
             )
         s3_client.put_object_acl(
             ACL='public-read',
@@ -222,8 +264,17 @@ def s3_event_handler(event, _):  # unused context parameter.
             )
 
         # Create a datestamped copy of this JSON data.
+        logger.info(
+            'uploading datestamped %s to %s/%s...',
+            dashboard_data_upload_path, outbucket, output_archive_object_key
+            )
         s3_client.upload_file(
-            upload_path, outbucket, output_archive_object_key)
+            dashboard_data_upload_path, outbucket, output_archive_object_key
+            )
+        logger.info(
+            'making %s/%s publicly readable...',
+            outbucket, output_archive_object_key
+            )
         s3_client.put_object_acl(
             ACL='public-read',
             Bucket=outbucket,
@@ -231,8 +282,12 @@ def s3_event_handler(event, _):  # unused context parameter.
             )
 
         # Create a copy of the incoming log spreadsheet.
+        logger.info(
+            'making copy of %s at %s/%s...',
+            dashboard_data_upload_path, outbucket, xlsx_archive_object_key
+            )
         s3_client.upload_file(
-            upload_path, outbucket, xlsx_archive_object_key
+            dashboard_data_upload_path, outbucket, xlsx_archive_object_key
             )
 
 
