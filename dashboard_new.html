@@ -109,6 +109,11 @@
       margin-top: 6px;
       }
 
+    .record-cell-annotation {
+      font-size: 8px;
+      font-weight: bold;
+      text-align: center;
+      }
 
     #record-details-svg {
       font-size: 14px;
@@ -322,6 +327,21 @@
 
   var GRID_COLOR = '#bcc0e8';
   var TEXT_COLOR = '#33b';
+  var WEEKEND_COLOR = '#ecedf8';
+  var WEEKDAY_COLOR = '#d9dbf2';
+  
+  var GUEST_PARKING_COLOR = 'blue';
+  var GUEST_PARKING_3_COLOR = '#8800bb';
+  var GUEST_PARKING_4_COLOR = 'red';
+  var STREET_PARKING_COLOR = '#aaa';
+  var TOW_COLOR = 'black';
+
+  var STREET_PARKING_CHAR = 'S'
+  var TOW_CHAR = 'T'
+
+  var STREET_PARKING_FONT_COLOR = '#555'
+  var TOW_FONT_COLOR = '#ddd'
+  var STREET_AND_GUEST_FONT_COLOR = '#ccf'
 
   // - - - - - - - - - - - - - - - -
   // Horizontal grouping - e.g. weeks.
@@ -413,7 +433,7 @@
   var SELECTORS = new Object();
 
   var SELECTOR_FIELDS = [
-      {'field': 'plate', 'key': 'canonical_lic'},
+      {'field': 'plate', 'key': 'canonical_plate'},
       {'field': 'log1-long', 'key': 'log1-long'},
       {'field': 'log1-medium', 'key': 'log1-medium'},
       {'field': 'log1-short', 'key': 'log1-short'},
@@ -454,9 +474,9 @@
   // - - - - - - - - - - - - - - - - - - - - - - - -
   // Load data and draw initial rendering.
   // - - - - - - - - - - - - - - - - - - - - - - - -
-  d3.json("canonical_lic.json", function(data) {
-    // console.log("Test data:");
-    // console.log(data);
+  // d3.json("canonical_plate.json", function(data) {
+  // d3.json("canonical_lic_new.json", function(data) {
+  d3.json("creekside_parking_data.json", function(data) {
 
     // We capture these globally for later reference.
     MASTER_DATA = data;
@@ -523,8 +543,8 @@
         );
 
     var cell_colors = [
-      '#ecedf8', '#ecedf8',
-      '#d9dbf2', '#d9dbf2', '#d9dbf2', '#d9dbf2', '#d9dbf2'
+      WEEKEND_COLOR, WEEKEND_COLOR,
+      WEEKDAY_COLOR, WEEKDAY_COLOR, WEEKDAY_COLOR, WEEKDAY_COLOR, WEEKDAY_COLOR
       ]
 
     CELL_COLOR_SCALE = d3.scaleOrdinal()
@@ -721,7 +741,7 @@
     var maxGridY = (rowCount == 0) ? 0 : Math.max.apply(null, GRID_Y_SCALE.range())
 
     for (nRecord = 0; nRecord < licenseRecords.length; nRecord++) {
-      ROW_Y_SCALE.domain().push(licenseRecords[nRecord].canonical_lic);
+      ROW_Y_SCALE.domain().push(licenseRecords[nRecord].canonical_plate);
       }
 
     // Offset to the bottom of the grid.
@@ -814,7 +834,7 @@
 
     // Background grid rows: join the data.
     var gridRowUpdate = PLAYGROUND.selectAll(".grid-row")
-        .data(licenseRecords, function(d) {return d.canonical_lic;});
+        .data(licenseRecords, function(d) {return d.canonical_plate;});
 
     // Background grid rows: enter the grid-row g elements.
     var gridRowEnter = gridRowUpdate.enter()
@@ -909,7 +929,7 @@
           return CELL_COLOR_SCALE((i + MIN_REFDT_OFFSET) % 7)
           });
 
-    // Parked date cells: draw the new grid cell rect elements.
+    // Logged date cells: draw the new grid cell rect elements.
     recordCellEnter.append("rect")
         .attr("class", "record-cell")
         .attr("width", CELL_WIDTH)
@@ -920,11 +940,42 @@
             )
           })
         .style("fill", function(d){
-          if (d.five_day_total < 3) {return "blue";}
-          if (d.five_day_total == 3) {return "#8800bb"}
-          return "red";
+          if (d.record_class.tow) {return TOW_COLOR;}
+          // if (d.record_class.guest_parking) {return TOW_COLOR;}
+          if (
+              d.record_class.street_parking &&
+              ! d.record_class.guest_parking
+              ) {return STREET_PARKING_COLOR;}
+          if (d.five_day_total < 3) {return GUEST_PARKING_COLOR;}
+          if (d.five_day_total == 3) {return GUEST_PARKING_3_COLOR}
+          return GUEST_PARKING_4_COLOR;
           })
         .style("stroke", "#bbb");
+
+    recordCellEnter.append("text")
+        .attr("class", "record-cell-annotation")
+        .attr("x", function(d, i) {
+          return COL_X_SCALE('grid') + CELL_X_SCALE(
+            d.days_since_20000101 - DATE_RANGE.first_record_refdt_offset
+            )
+          })
+        .attr('dx', 1.5)
+        .attr('dy', CELL_HEIGHT - 4)
+        // .attr('font-family', 'Arial, Helvetica, sans-serif')  // No effect.
+        // .attr('font-weight', 'lighter')  // No effect.
+        .style('fill', function(d){
+          if (d.record_class.tow) {return TOW_FONT_COLOR;}
+          if (d.record_class.street_parking) {
+            if (d.record_class.guest_parking) {return STREET_AND_GUEST_FONT_COLOR;}
+            return STREET_PARKING_FONT_COLOR;
+            }
+          return TOW_FONT_COLOR;
+          })
+        .text(function(d){
+          if (d.record_class.tow) {return TOW_CHAR;}
+          if (d.record_class.street_parking) {return STREET_PARKING_CHAR;}
+          return '';
+          });
 
     recordCellEnter.append("text")
         .attr("x", function(d, i) {
@@ -950,8 +1001,8 @@
         .style("font-family", "sans-serif")
         .style("font-size", "12px")
         .style("fill", TEXT_COLOR)
-        .text(function(d) { return d.canonical_lic; })
-        .on('click', function(d) {plateClicked(d.canonical_lic);});
+        .text(function(d) { return d.canonical_plate; })
+        .on('click', function(d) {plateClicked(d.canonical_plate);});
 
     // Plate record info: draw the new text element for the owner.
     gridRowEnter.append("text")
@@ -1161,12 +1212,11 @@
     // - - - - - - - - - - - - - - - - - - - - - - - -
 
     if (licenseRecords.length == 1){
-      showPlateRecords(licenseRecords[0].canonical_lic, enterTransition);
+      showPlateRecords(licenseRecords[0].canonical_plate, enterTransition);
       }
     else {
       showPlateRecords('');
       }
-
 
     }
 
@@ -1223,16 +1273,27 @@
       return;
       }
 
-    plateData = MASTER_DATA.records_by_lic[plate];
+    // plateData = MASTER_DATA.records_by_lic[plate];
+
+    recordSetNow = MASTER_DATA.records_by_lic[plate].records;
+    plateRecords = [];
+    for (
+        recordsSetNum = 0;
+        recordsSetNum < recordSetNow.length;
+        recordsSetNum++
+        ) {
+      logRecordsNow = recordSetNow[recordsSetNum].log_records;
+      plateRecords = plateRecords.concat(logRecordsNow);
+      }
 
     recordFields = [
       {'field': 'date', 'header': 'Date', 'x': 80,
         'val': function(d) {return offsetToDateString(d.days_since_20000101);}
       }, 
-      {'field': 'plate', 'header': 'Plate', 'x': 220, 'val': function(d) {return d.raw_lic;}}, 
-      {'field': 'color', 'header': 'Color', 'x': 320, 'val': function(d) {return d.raw_color;}},
-      {'field': 'make', 'header': 'Make', 'x': 480, 'val': function(d) {return d.raw_make;}},
-      {'field': 'model', 'header': 'Model', 'x': 680, 'val': function(d) {return d.raw_model;}}
+      {'field': 'plate', 'header': 'Plate', 'x': 220, 'val': function(d) {return d.plate;}}, 
+      {'field': 'color', 'header': 'Color', 'x': 320, 'val': function(d) {return d['color'];}},
+      {'field': 'make', 'header': 'Make', 'x': 480, 'val': function(d) {return d.make;}},
+      {'field': 'model', 'header': 'Model', 'x': 680, 'val': function(d) {return d.model;}}
       ]
 
 
@@ -1249,7 +1310,9 @@
     //   }
 
     var recordUpdate = detailsDiv.selectAll('.record-details')
-      .data(plateData.records);
+      .data(plateRecords);
+      // .data(plateData.records);
+
     // console.log(plateData.records);
 
     var recordEnter = recordUpdate.enter()
@@ -1396,16 +1459,16 @@
 
       // console.log(LICENSE_RECORDS[1]);
       // console.log(ownerIndex);
-      // console.log(LICENSE_RECORDS[1]['canonical_lic']);
-      // console.log(LICENSE_RECORDS[1]['canonical_lic'] in ownerIndex);
+      // console.log(LICENSE_RECORDS[1]['canonical_plate']);
+      // console.log(LICENSE_RECORDS[1]['canonical_plate'] in ownerIndex);
 
       for (var nRecord = 0; nRecord < LICENSE_RECORDS.length; nRecord++) {
 
         record = LICENSE_RECORDS[nRecord];
-        if (record['canonical_lic'] in ownerIndex) {
+        if (record['canonical_plate'] in ownerIndex) {
           // We put this into the data, but as of current implementation we need
           // to push the change into the display by hand.
-          record['owner'] = ownerIndex[record['canonical_lic']];
+          record['owner'] = ownerIndex[record['canonical_plate']];
           }
         else {
           record['owner'] = '';
@@ -1450,7 +1513,7 @@
     if (selectedPlates.length > 0 && selectedPlates[0].length > 0) {
       // console.log(selectedPlates);
       dataset = dataset.filter(
-        function(d){return contains(selectedPlates, d['canonical_lic']);}
+        function(d){return contains(selectedPlates, d['canonical_plate']);}
         );
       }
 

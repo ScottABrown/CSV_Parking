@@ -84,13 +84,14 @@ REF_DATETIME_KEY = 'days_since_{}'.format(REF_DATETIME.strftime('%Y%m%d'))
 WINDOW_DAYS = 30
 
 # The default name of the output file.
-DEFAULT_JSON_OUTPUT_FILENAME = 'canonical_lic.json'
+DEFAULT_JSON_OUTPUT_FILENAME = 'creekside_parking_data.json'
 
 # The s3 buckets we use for file processing.
 DEFAULT_INCOMING_S3_BUCKET = 'creekside-parking-dropbox'
 DEFAULT_OUTGOING_S3_BUCKET = 'creekside-parking'
 
 DEFAULT_OUTGONG_ARCHIVE_PREFIX = 'archive'
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def argument_parser():
@@ -119,7 +120,6 @@ def argument_parser():
         metavar='YYYY-MM-DD',
         help='''latest date for which to process parking records. '''
         )
-
 
     parser.add_argument(
         '-l', '--log-path',
@@ -280,7 +280,7 @@ def require_expected_row_0(sheet):
         # print sheet.row(0)[col_num].value
         expected_cell_value = EXPECTED_ROW_0[col_num]
         actual_cell_value = sheet.row(0)[col_num].value
-        if  expected_cell_value.upper() not in actual_cell_value.upper():
+        if expected_cell_value.upper() not in actual_cell_value.upper():
             err_msg = '%s: row 0, column %s: expected "%s", found "%s"'
             raise RuntimeError(
                 err_msg % (
@@ -1107,7 +1107,7 @@ def process_workbook(args):
 
     log_parser = csv_parking_log.LogParser(args.input_file, days=args.days)
     log_parser.parse()
-    log_parser.dashboard_data()
+    log_parser.write_dashboard_data('creekside_parking_data.json')
 
     exit()
     assert(False)

@@ -96,6 +96,18 @@ STANDARD_DATE_FORMAT = '%Y-%m-%d'
 LOG_DATE_FORMAT = '%m.%d.%y'
 FILENAME_DATE_FORMAT = '%Y%m%d'
 
+# The number of days per block for summarizing total log entries for
+# a plate.
+WINDOW_DAYS = 30
+WINDOWS = {
+    'log1-long': WINDOW_DAYS * 3,
+    'log1-medium': WINDOW_DAYS * 2,
+    'log1-short': WINDOW_DAYS * 1,
+    'log5-long': WINDOW_DAYS * 3,
+    'log5-medium': WINDOW_DAYS * 2,
+    'log5-short': WINDOW_DAYS * 1,
+    }
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def _most_common_element(a_list):
@@ -253,6 +265,34 @@ def _get_latest_valid_refdt_offset(filename):
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+def _get_five_day_totals(plate_record_sets):
+    '''Find five day totals for a canonical plate's plate record sets.'''
+    # The plate record sets are returned sorted by
+    # refdt_offset.
+    index_a = 0
+    for index_b, plate_record_set in enumerate(plate_record_sets):
+        # Advance index_a until the selected record is within
+        # five days of index_b.
+        while (
+                plate_record_sets[index_b].refdt_offset - 5 >=
+                plate_record_sets[index_a].refdt_offset
+                ):  # pylint: disable=bad-continuation
+            index_a += 1
+        # We've now moved index_a up until the days between the
+        # records at index_a and index_b is no more than 5.
+        # plate_record_set.five_day_total = index_b - index_a + 1
+
+        if not plate_record_set.record_class['guest_parking']:
+            continue
+        # Add one because the record set at index_b isn't included in
+        # the range, but we know it's a guest parking record set.
+        plate_record_set.five_day_total = len([
+            r for r in plate_record_sets[index_a:index_b]
+            if r.record_class['guest_parking']
+            ]) + 1
+
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 class CsvParkingLogError(Exception):
     '''Base class for module errors. '''
     def __init__(self, msg, code=2):
@@ -299,7 +339,7 @@ class LogRecord(object):
     def __init__(
             self,
             plate, date, record_type,
-            make=None, model=None, location=None
+            make=None, model=None, color=None, location=None
             ):  # pylint: disable=bad-continuation
         '''Initialize one LogRecord instance.'''
         self.plate = unicode(plate)
@@ -307,6 +347,7 @@ class LogRecord(object):
         self.record_type = unicode(record_type)
         self.make = unicode(make)
         self.model = unicode(model)
+        self.color = unicode(color)
         self.location = unicode(location)
         self.refdt_offset = _datetime_to_refdt_offset(
             _log_date_to_datetime(self.date)
@@ -329,8 +370,9 @@ class LogRecord(object):
             'record_type': self.record_type,
             'make': self.make,
             'model': self.model,
+            'color': self.color,
             'location': self.location,
-            'refdt_offset': self.refdt_offset,
+            REF_DATETIME_KEY: self.refdt_offset,
             }
 
 
@@ -343,6 +385,10 @@ def get_plate_record_sets(canonical_plate_log_records):
         canonical_plate_log_records (list):
             A list of ``LogRecord`` instances that share a common
             ``canonical_plate`` value.
+
+    The list of plate record sets returned will be sorted by
+    ``refdt_offset``.
+
     '''
 
     logger = logging.getLogger(__name__)
@@ -365,19 +411,19 @@ def get_plate_record_sets(canonical_plate_log_records):
 
     # Walk through records, finding groups with common
     # refdt_offset. Since we sorted, this is straightforward.
-    record_index = 0
-    while record_index < len(records):
+    record_num = 0
+    while record_num < len(records):
 
-        current_refdt_offset = records[record_index].refdt_offset
+        current_refdt_offset = records[record_num].refdt_offset
         current_record_set = []
 
         while(
-                record_index < len(records) and
-                records[record_index].refdt_offset == current_refdt_offset
+                record_num < len(records) and
+                records[record_num].refdt_offset == current_refdt_offset
                 ):  # pylint: disable=bad-continuation
 
-            current_record_set.append(records[record_index])
-            record_index += 1
+            current_record_set.append(records[record_num])
+            record_num += 1
 
         new_set = PlateRecordSet(current_record_set)
         plate_record_sets.append(new_set)
@@ -401,7 +447,7 @@ class PlateRecordSet(object):
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def __init__(self, records):
-        '''Initialize one LogRecord instance.'''
+        '''Initialize one PlateRecordSet instance.'''
 
         logger_name = '%s.%s' % (__name__, self.__class__.__name__)
         self._logger = logging.getLogger(logger_name)
@@ -416,6 +462,10 @@ class PlateRecordSet(object):
             'street_parking': False,
             'tow': False
             }
+
+        # This will be set after all PlateRecordSets are
+        # constructed.
+        self.five_day_total = 0
 
         self._extract_canonical_plate(records)
         self._extract_date(records)  # This also sets refdt_offset.
@@ -468,10 +518,12 @@ class PlateRecordSet(object):
         return {
             'canonical_plate': self.canonical_plate,
             'date': self.date,
-            'refdt_offset': self.refdt_offset,
+            REF_DATETIME_KEY: self.refdt_offset,
             'record_class': self.record_class,
             'log_records': [record.to_dict() for record in self.log_records],
+            'five_day_total': self.five_day_total,
             }
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 class LogParser(object):
@@ -841,11 +893,14 @@ class LogParser(object):
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def _canonicalize_plates(self):
-        '''Find canonical plate representatives and create plate groups.
+        '''Find canonical plates and create canonical plate index.
 
         The canonical representative will be the most commonly
         occurring plate among records that are equivalent as
         determined by matchiness.
+
+        The lists of log records that are the values of the
+        canonical plate index are sorted by ``refdt_offset``.
 
         '''
 
@@ -870,7 +925,9 @@ class LogParser(object):
                 # print '{}\t{}'.format(
                 #     log_record.plate, log_record.canonical_plate
                 #     )
-            self._canonical_plate_index[canonical_plate] = matching_records
+            self._canonical_plate_index[canonical_plate] = sorted(
+                matching_records, key=lambda x: x.refdt_offset
+                )
 
         # print '-----------'
         # print len(self.log_records)
@@ -954,6 +1011,34 @@ class LogParser(object):
         #         )
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # pylint: disable=invalid-name
+    def _calculate_guest_parking_window_totals(self, plate):
+        '''Populate the 30, 60, 90 day window totals for a canonical plate.'''
+
+        record_sets = self._plate_record_set_index[plate]
+        # We tally with an index, and convert to a list of
+        # {key:, value:} dicts at the end.
+        window_totals = {k: 0 for k in WINDOWS}
+
+        # record_sets is sorted in refdt_offset order.
+        for record_set in record_sets:
+            if not record_set.record_class['guest_parking']:
+                continue
+            days_since_record = self.end_refdt_offset - record_set.refdt_offset
+            for window_type, window_size in WINDOWS.iteritems():
+                if days_since_record <= window_size:
+                    if window_type[:4] == 'log1':
+                        window_totals[window_type] += 1
+                    elif (
+                            window_type[:4] == 'log5' and
+                            record_set.five_day_total >= 3
+                            ):  # pylint: disable=bad-continuation
+                        window_totals[window_type] += 1
+
+        return [{'key': k, 'value': v} for k, v in window_totals.iteritems()]
+    # pylint: enable=invalid-name
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def parse(self):
         '''Parse the instance's parking log file.'''
 
@@ -1001,15 +1086,14 @@ class LogParser(object):
             self._prune_to_dynamic_date_bounds()
 
         self._canonicalize_plates()
-
         self._log_parse_statistics()
 
         for plate, log_records in self._canonical_plate_index.iteritems():
-            self._plate_record_set_index[plate] = get_plate_record_sets(
-                log_records
-                )
+            plate_record_sets = get_plate_record_sets(log_records)
+            self._plate_record_set_index[plate] = plate_record_sets
+            _get_five_day_totals(plate_record_sets)
 
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def create_row_records(self, record_row):
         '''Create LogRecord instances for the dates logged in this row.
         '''
@@ -1041,6 +1125,7 @@ class LogParser(object):
                     record_type,
                     make=record_row[COL_INDICES['MAKE']].value,
                     model=record_row[COL_INDICES['MODEL']].value,
+                    color=record_row[COL_INDICES['COLOR']].value,
                     location=record_row[COL_INDICES['LOCATION']].value
                     )
 
@@ -1053,8 +1138,8 @@ class LogParser(object):
                         )
                     self._plate_index[new_record.plate].append(new_record)
 
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def dashboard_data(self):
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def write_dashboard_data(self, filepath):
         '''Create a structure with data for the dashboard.
         [
         "date_range"
@@ -1083,7 +1168,7 @@ class LogParser(object):
                         "key", "value"
         ]
         '''
-        dashboard_data = {
+        write_dashboard_data = {
             'date_range': {
                 'first_record_date': self.first_record_date,
                 'first_record_refdt_offset': self.first_record_refdt_offset,
@@ -1091,9 +1176,17 @@ class LogParser(object):
                 'last_record_refdt_offset': self.last_record_refdt_offset,
                 },
             'records_by_lic': {
-                k: [u.to_dict() for u in v]
-                for k, v in self._plate_record_set_index.iteritems()
+                plate: {
+                    'canonical_plate': (
+                        self._plate_record_set_index[plate][0].canonical_plate
+                        ),
+                    'records': [u.to_dict() for u in v],
+                    'window_total': (
+                        self._calculate_guest_parking_window_totals(plate)
+                        ),
+                    }
+                for plate, v in self._plate_record_set_index.iteritems()
                 }
             }
-        with open('/tmp/test_dump', 'w') as fptr:
-            json.dump(dashboard_data, fptr)
+        with open(filepath, 'w') as fptr:
+            json.dump(write_dashboard_data, fptr)
