@@ -98,3 +98,6 @@ Logs
 # The output file for csv_parking.py
 creekside_parking_data.json
 
+# Lambda archive.
+CSV_Parking.zip
+
