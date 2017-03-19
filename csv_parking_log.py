@@ -935,13 +935,6 @@ class LogParser(object):
             'log version determined: %s', self.column_manager.log_version
             )
 
-        # if not _is_header_row(sheet.row(0)):
-        #     err_msg = '%s: sheet %s row 0 is not a header row'
-        #     self._logger.error(err_msg, self.filepath, sheet.name)
-        #     raise CsvParkingLogStructureError(
-        #         err_msg % (self.filepath, sheet.name)
-        #         )
-
         number_of_rows = sheet.nrows
         self._logger.debug('rows: %s', number_of_rows)
 
@@ -956,11 +949,9 @@ class LogParser(object):
             self.rows_parsed += 1
             record_row = sheet.row(row_num)
 
-            # if not record_row[COL_INDICES['LIC']].value:
             if not record_row[license_column].value:
                 continue
 
-            # if _is_header_row(record_row):
             if self.column_manager.is_header_row(record_row):
                 self.header_rows_skipped += 1
                 continue
