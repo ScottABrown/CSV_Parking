@@ -17,67 +17,81 @@ import re
 
 import xlrd
 
+from log_column_manager import ColumnManager
 import matchiness
 
 logging.getLogger(__name__).addHandler(NullHandler())
 
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# THe text expected in row 0 of the Code3 parking spreadsheet.
-EXPECTED_ROW_0 = [
-    'MAKE',
-    'MODEL',
-    'COLOR',
-    'LIC',
-    'LOCATION',
-    '1ST',
-    '2nd',
-    '3rd',
-    'TOWED',
-    '1ST',
-    'TOWED',
-    ]
+# # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# # THe text expected in row 0 of the Code3 parking spreadsheet.
+# # Used only in "_is_header_row()".
+# EXPECTED_ROW_0 = [
+#     'MAKE',
+#     'MODEL',
+#     'COLOR',
+#     'LIC',
+#     'LOCATION',
+#     '1ST',
+#     '2nd',
+#     '3rd',
+#     'TOWED',
+#     '1ST',
+#     'TOWED',
+#     ]
 
-# Indices for rows of the Code3 parking spreadsheet.
-COL_INDICES = {
-    'MAKE': 0,
-    'MODEL': 1,
-    'COLOR': 2,
-    'LIC': 3,
-    'LOCATION': 4,
-    'OPEN_PARKING_1': 5,
-    'OPEN_PARKING_2': 6,
-    'OPEN_PARKING_3': 7,
-    'TOWDATE': 8,
-    'STREET_PARKING_1': 9,
-    'TOWDATE_2': 10,
-    }
+# # Indices for rows of the Code3 parking spreadsheet. Used in defining
+# # RECORD_TYPE, _is_header_row(), parse(),
+# # create_row_records().
+# COL_INDICES = {
+#     'MAKE': 0,
+#     'MODEL': 1,
+#     'COLOR': 2,
+#     'LIC': 3,
+#     'LOCATION': 4,
+#     'OPEN_PARKING_1': 5,
+#     'OPEN_PARKING_2': 6,
+#     'OPEN_PARKING_3': 7,
+#     'TOWDATE': 8,
+#     'STREET_PARKING_1': 9,
+#     'TOWDATE_2': 10,
+#     # 'WARNING': None,
+#     }
 
-# The log record type, based on the column in which the date is logged.
-RECORD_TYPE = {
-    # 5: 'guest_1',
-    # 6: 'guest_2',
-    # 7: 'guest_3',
-    # 8: 'guest_tow',
-    # 9: 'street_1',
-    # 10: 'street_tow',
-    COL_INDICES['OPEN_PARKING_1']: 'guest_1',
-    COL_INDICES['OPEN_PARKING_2']: 'guest_2',
-    COL_INDICES['OPEN_PARKING_3']: 'guest_3',
-    COL_INDICES['TOWDATE']: 'guest_tow',
-    COL_INDICES['STREET_PARKING_1']: 'street_1',
-    COL_INDICES['TOWDATE_2']: 'street_tow',
-    }
+# # The columns where a date indicates a new log record and tell us the
+# # type. Used only in create_row_records().
+# RECORD_TYPE_COLUMNS = [
+#     COL_INDICES['OPEN_PARKING_1'],
+#     COL_INDICES['OPEN_PARKING_2'],
+#     COL_INDICES['OPEN_PARKING_3'],
+#     COL_INDICES['TOWDATE'],
+#     COL_INDICES['STREET_PARKING_1'],
+#     COL_INDICES['TOWDATE_2'],
+#     ]
+
+# # The log record type, based on the column in which the date is
+# # logged. Used only in create_row_records().
+# RECORD_TYPE = {
+#     COL_INDICES['OPEN_PARKING_1']: 'guest_1',
+#     COL_INDICES['OPEN_PARKING_2']: 'guest_2',
+#     COL_INDICES['OPEN_PARKING_3']: 'guest_3',
+#     COL_INDICES['STREET_PARKING_1']: 'street_1',
+#     # COL_INDICES['WARNING']: 'warning',
+#     COL_INDICES['TOWDATE']: 'guest_tow',
+#     COL_INDICES['TOWDATE_2']: 'street_tow',
+#     }
 
 # The general category of record, used for dashboard indicators.
-RECORD_CLASS = {
-    'guest_1': 'guest_parking',
-    'guest_2': 'guest_parking',
-    'guest_3': 'guest_parking',
-    'guest_tow': 'tow',
-    'street_1': 'street_parking',
-    'street_tow': 'tow',
-    }
+# Used only in PlateRecordSet._extract_record_class().
+# RECORD_CLASS = {
+#     'guest_1': 'guest_parking',
+#     'guest_2': 'guest_parking',
+#     'guest_3': 'guest_parking',
+#     'street_1': 'street_parking',
+#     'warning': 'warning',
+#     'guest_tow': 'tow',
+#     'street_tow': 'tow',
+#     }
 
 # Date comparison is easier when we use "days since ref date" to compare.
 REF_DATETIME = datetime(2000, 01, 01)
@@ -118,7 +132,7 @@ def _most_common_element(a_list):
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def _force_float_to_int(record_row, column_name):
+def _force_float_to_int(record_row, column_num):
     '''Convert float type to int.
 
     Some spreadsheet fields, if numeric, are floats in Excel but we
@@ -126,31 +140,32 @@ def _force_float_to_int(record_row, column_name):
     added after, say, a plate value).
     '''
     try:
-        record_row[COL_INDICES[column_name]].value = (
-            int(float(record_row[COL_INDICES[column_name]].value))
+        record_row[column_num].value = (
+            int(float(record_row[column_num].value))
             )
     except (ValueError, OverflowError):
         pass
 
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def _is_header_row(record_row):
-    '''Check if the values in record_row appear to be those of a header row.
-    '''
-    row_value_list = []
-    for col_index in COL_INDICES.values():
-        row_value_list.append(unicode(record_row[col_index].value).strip())
+# # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# def _is_header_row(record_row):
+#     '''Check if the values in record_row appear to be those of a header row.
+#     '''
+#     row_value_list = []
+#     for col_index in COL_INDICES.values():
+#         row_value_list.append(unicode(record_row[col_index].value).strip())
 
-    # We need a more robust (forgiving) way to watch for
-    # anomalous headers.
-        # if [x.value for x in record_row[:3]] != EXPECTED_ROW_0[:3]:
-        #     err_msg = "Anomalous header value in row %s"
-        #     print lic
-        #     print record_row[:3]
-        #     print err_msg % row_num
-        #     # raise ValueError(err_msg % row_num)
-    if len(set(row_value_list).intersection(set(EXPECTED_ROW_0))) > 2:
-        return True
+#     # We need a more robust (forgiving) way to watch for
+#     # anomalous headers.
+#         # if [x.value for x in record_row[:3]] != EXPECTED_ROW_0[:3]:
+#         #     err_msg = "Anomalous header value in row %s"
+#         #     print lic
+#         #     print record_row[:3]
+#         #     print err_msg % row_num
+#         #     # raise ValueError(err_msg % row_num)
+#     if len(set(row_value_list).intersection(set(EXPECTED_ROW_0))) > 2:
+#         return True
+#     return False
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -187,7 +202,7 @@ def _log_date_to_datetime(log_date):
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def _to_yyyy_mm_dd(date_rep, format=None):
+def _to_yyyy_mm_dd(date_rep, date_format=None):
     '''Convert a datetime, refdt_offset or string date to YYYY-MM-DD.
 
     Arguments:
@@ -195,15 +210,16 @@ def _to_yyyy_mm_dd(date_rep, format=None):
         date_rep (datetime.datetime, int or str):
             The value to be converted to YYYY-MM-DD.
 
-        format (str):
-            A date format specification matching a string date_rep.
+        date_format (str):
+            A date date_format specification matching a string
+            date_rep.
 
     '''
     # Convert any date_rep to a datetime.
     converter = {
         datetime: lambda x: x,
         int: _refdt_offset_to_datetime,
-        str: lambda x: datetime.strptime(x, format)
+        str: lambda x: datetime.strptime(x, date_format)
         }
     as_datetime = converter[type(date_rep)](date_rep)
     return as_datetime.strftime(STANDARD_DATE_FORMAT)
@@ -377,61 +393,6 @@ class LogRecord(object):
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def get_plate_record_sets(canonical_plate_log_records):
-    '''Create a list of PlateRecordSet instances from log records.
-
-    Arguments:
-
-        canonical_plate_log_records (list):
-            A list of ``LogRecord`` instances that share a common
-            ``canonical_plate`` value.
-
-    The list of plate record sets returned will be sorted by
-    ``refdt_offset``.
-
-    '''
-
-    logger = logging.getLogger(__name__)
-
-    records = sorted(
-        canonical_plate_log_records,
-        key=lambda r: r.refdt_offset
-        )
-    canonical_plates = set([r.canonical_plate for r in records])
-
-    if len(canonical_plates) > 1:
-        err_msg = (
-            'PlateRecordSet.get_plate_record_sets():'
-            ' canonical_plate must be unique; found: %s'
-            )
-        logger.error(err_msg, list(canonical_plates))
-        raise ValueError(err_msg % list(canonical_plates))
-
-    plate_record_sets = []
-
-    # Walk through records, finding groups with common
-    # refdt_offset. Since we sorted, this is straightforward.
-    record_num = 0
-    while record_num < len(records):
-
-        current_refdt_offset = records[record_num].refdt_offset
-        current_record_set = []
-
-        while(
-                record_num < len(records) and
-                records[record_num].refdt_offset == current_refdt_offset
-                ):  # pylint: disable=bad-continuation
-
-            current_record_set.append(records[record_num])
-            record_num += 1
-
-        new_set = PlateRecordSet(current_record_set)
-        plate_record_sets.append(new_set)
-
-    return plate_record_sets
-
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 class PlateRecordSet(object):
     '''A collection of log records for a plate on a single date.
 
@@ -446,12 +407,13 @@ class PlateRecordSet(object):
     '''
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def __init__(self, records):
+    def __init__(self, column_manager, records):
         '''Initialize one PlateRecordSet instance.'''
 
         logger_name = '%s.%s' % (__name__, self.__class__.__name__)
         self._logger = logging.getLogger(logger_name)
 
+        self.column_manager = column_manager
         self.log_records = records
 
         self.canonical_plate = None
@@ -509,7 +471,9 @@ class PlateRecordSet(object):
         '''Mark the record classes found in this group.'''
 
         for record in records:
-            self.record_class[RECORD_CLASS[record.record_type]] = True
+            self.record_class[
+                self.column_manager.record_class[record.record_type]
+                ] = True
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def to_dict(self):
@@ -582,6 +546,8 @@ class LogParser(object):
 
         logger_name = '%s.%s' % (__name__, self.__class__.__name__)
         self._logger = logging.getLogger(logger_name)
+
+        self.column_manager = None
 
         # The path to the log file.
         self.filepath = filepath
@@ -1046,13 +1012,27 @@ class LogParser(object):
         self._logger.debug('parsing log file %s', self.filepath)
         workbook = xlrd.open_workbook(self.filepath)
 
+        self.column_manager = ColumnManager()
+
         sheet = workbook.sheet_by_name('Sheet1')
-        if not _is_header_row(sheet.row(0)):
-            err_msg = '%s: sheet %s row 0 is not a header row'
+        self.column_manager.determine_column_map(sheet.row(0))
+
+        if self.column_manager.log_version is None:
+            err_msg = '%s: sheet %s row 0 is not a recognized header row'
             self._logger.error(err_msg, self.filepath, sheet.name)
             raise CsvParkingLogStructureError(
                 err_msg % (self.filepath, sheet.name)
                 )
+        self._logger.info(
+            'log version determined: %s', self.column_manager.log_version
+            )
+
+        # if not _is_header_row(sheet.row(0)):
+        #     err_msg = '%s: sheet %s row 0 is not a header row'
+        #     self._logger.error(err_msg, self.filepath, sheet.name)
+        #     raise CsvParkingLogStructureError(
+        #         err_msg % (self.filepath, sheet.name)
+        #         )
 
         number_of_rows = sheet.nrows
         self._logger.debug('rows: %s', number_of_rows)
@@ -1062,21 +1042,28 @@ class LogParser(object):
         self.header_rows_skipped = 0
         self.rows_inprocessed = 0
 
+        license_column = self.column_manager.license_column
+
         for row_num in range(number_of_rows):
             self.rows_parsed += 1
             record_row = sheet.row(row_num)
 
-            if not record_row[COL_INDICES['LIC']].value:
+            # if not record_row[COL_INDICES['LIC']].value:
+            if not record_row[license_column].value:
                 continue
 
-            if _is_header_row(record_row):
+            # if _is_header_row(record_row):
+            if self.column_manager.is_header_row(record_row):
                 self.header_rows_skipped += 1
                 continue
 
             self.rows_inprocessed += 1
-
-            _force_float_to_int(record_row, 'LIC')
-            _force_float_to_int(record_row, 'MODEL')
+            _force_float_to_int(
+                record_row, self.column_manager.column_indices['LIC']
+                )
+            _force_float_to_int(
+                record_row, self.column_manager.column_indices['MODEL']
+                )
 
             self.create_row_records(record_row)
 
@@ -1090,7 +1077,7 @@ class LogParser(object):
         self._log_parse_statistics()
 
         for plate, log_records in self._canonical_plate_index.iteritems():
-            plate_record_sets = get_plate_record_sets(log_records)
+            plate_record_sets = self.get_plate_record_sets(log_records)
             self._plate_record_set_index[plate] = plate_record_sets
             _get_five_day_totals(plate_record_sets)
 
@@ -1099,20 +1086,16 @@ class LogParser(object):
         '''Create LogRecord instances for the dates logged in this row.
         '''
 
-        plate = record_row[COL_INDICES['LIC']].value
+        # Syntax sugar.
+        column_indices = self.column_manager.column_indices
+
+        plate = record_row[column_indices['LIC']].value
 
         # Add a record for each of these potential date fields
         # that have a value defined.
-        for event_field_index in [
-                COL_INDICES['OPEN_PARKING_1'],
-                COL_INDICES['OPEN_PARKING_2'],
-                COL_INDICES['OPEN_PARKING_3'],
-                COL_INDICES['TOWDATE'],
-                COL_INDICES['STREET_PARKING_1'],
-                COL_INDICES['TOWDATE_2'],
-                ]:  # pylint: disable=bad-continuation
+        for event_field_index in self.column_manager.record_type_columns:
 
-            record_type = RECORD_TYPE[event_field_index]
+            record_type = self.column_manager.record_type[event_field_index]
 
             # If a value is present for this type of event, it should
             # be the date the event was logged.
@@ -1124,10 +1107,10 @@ class LogParser(object):
                     plate,
                     record_date,
                     record_type,
-                    make=record_row[COL_INDICES['MAKE']].value,
-                    model=record_row[COL_INDICES['MODEL']].value,
-                    color=record_row[COL_INDICES['COLOR']].value,
-                    location=record_row[COL_INDICES['LOCATION']].value
+                    make=record_row[column_indices['MAKE']].value,
+                    model=record_row[column_indices['MODEL']].value,
+                    color=record_row[column_indices['COLOR']].value,
+                    location=record_row[column_indices['LOCATION']].value
                     )
 
                 if self._validate_refdt_offset(new_record):
@@ -1138,6 +1121,60 @@ class LogParser(object):
                         new_record.plate, []
                         )
                     self._plate_index[new_record.plate].append(new_record)
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def get_plate_record_sets(self, canonical_plate_log_records):
+        '''Create a list of PlateRecordSet instances from log records.
+
+        Arguments:
+
+            canonical_plate_log_records (list):
+                A list of ``LogRecord`` instances that share a common
+                ``canonical_plate`` value.
+
+        The list of plate record sets returned will be sorted by
+        ``refdt_offset``.
+
+        '''
+
+        records = sorted(
+            canonical_plate_log_records,
+            key=lambda r: r.refdt_offset
+            )
+        canonical_plates = set([r.canonical_plate for r in records])
+
+        if len(canonical_plates) > 1:
+            err_msg = (
+                'get_plate_record_sets():'
+                ' canonical_plate must be unique; found: %s'
+                )
+            self._logger.error(err_msg, list(canonical_plates))
+            raise ValueError(err_msg % list(canonical_plates))
+
+        plate_record_sets = []
+
+        # Walk through records, finding groups with common
+        # refdt_offset. Since we sorted, this is straightforward.
+        record_num = 0
+        while record_num < len(records):
+
+            current_refdt_offset = records[record_num].refdt_offset
+            current_record_set = []
+
+            while(
+                    record_num < len(records) and
+                    records[record_num].refdt_offset == current_refdt_offset
+                    ):  # pylint: disable=bad-continuation
+
+                current_record_set.append(records[record_num])
+                record_num += 1
+
+            new_set = PlateRecordSet(
+                self.column_manager, current_record_set
+                )
+            plate_record_sets.append(new_set)
+
+        return plate_record_sets
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def dashboard_data(self):
