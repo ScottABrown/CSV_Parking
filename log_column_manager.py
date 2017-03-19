@@ -187,6 +187,14 @@ class ColumnManager(object):
         # Not sure it's worth the cost here.
         # lower_row = map(lambda x: str(x).lower, row)
 
+        if not version and not self.header_row_template:
+            err_msg = (
+                'is_header_row: version parameter required if version'
+                ' is not already determined'
+                )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+
         if version and version not in ColumnManager.version_header_row:
             err_msg = 'unknown log version: %s'
             logger.error(err_msg, version)
