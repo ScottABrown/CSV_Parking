@@ -22,77 +22,6 @@ import matchiness
 
 logging.getLogger(__name__).addHandler(NullHandler())
 
-
-# # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# # THe text expected in row 0 of the Code3 parking spreadsheet.
-# # Used only in "_is_header_row()".
-# EXPECTED_ROW_0 = [
-#     'MAKE',
-#     'MODEL',
-#     'COLOR',
-#     'LIC',
-#     'LOCATION',
-#     '1ST',
-#     '2nd',
-#     '3rd',
-#     'TOWED',
-#     '1ST',
-#     'TOWED',
-#     ]
-
-# # Indices for rows of the Code3 parking spreadsheet. Used in defining
-# # RECORD_TYPE, _is_header_row(), parse(),
-# # create_row_records().
-# COL_INDICES = {
-#     'MAKE': 0,
-#     'MODEL': 1,
-#     'COLOR': 2,
-#     'LIC': 3,
-#     'LOCATION': 4,
-#     'OPEN_PARKING_1': 5,
-#     'OPEN_PARKING_2': 6,
-#     'OPEN_PARKING_3': 7,
-#     'TOWDATE': 8,
-#     'STREET_PARKING_1': 9,
-#     'TOWDATE_2': 10,
-#     # 'WARNING': None,
-#     }
-
-# # The columns where a date indicates a new log record and tell us the
-# # type. Used only in create_row_records().
-# RECORD_TYPE_COLUMNS = [
-#     COL_INDICES['OPEN_PARKING_1'],
-#     COL_INDICES['OPEN_PARKING_2'],
-#     COL_INDICES['OPEN_PARKING_3'],
-#     COL_INDICES['TOWDATE'],
-#     COL_INDICES['STREET_PARKING_1'],
-#     COL_INDICES['TOWDATE_2'],
-#     ]
-
-# # The log record type, based on the column in which the date is
-# # logged. Used only in create_row_records().
-# RECORD_TYPE = {
-#     COL_INDICES['OPEN_PARKING_1']: 'guest_1',
-#     COL_INDICES['OPEN_PARKING_2']: 'guest_2',
-#     COL_INDICES['OPEN_PARKING_3']: 'guest_3',
-#     COL_INDICES['STREET_PARKING_1']: 'street_1',
-#     # COL_INDICES['WARNING']: 'warning',
-#     COL_INDICES['TOWDATE']: 'guest_tow',
-#     COL_INDICES['TOWDATE_2']: 'street_tow',
-#     }
-
-# The general category of record, used for dashboard indicators.
-# Used only in PlateRecordSet._extract_record_class().
-# RECORD_CLASS = {
-#     'guest_1': 'guest_parking',
-#     'guest_2': 'guest_parking',
-#     'guest_3': 'guest_parking',
-#     'street_1': 'street_parking',
-#     'warning': 'warning',
-#     'guest_tow': 'tow',
-#     'street_tow': 'tow',
-#     }
-
 # Date comparison is easier when we use "days since ref date" to compare.
 REF_DATETIME = datetime(2000, 01, 01)
 
@@ -145,27 +74,6 @@ def _force_float_to_int(record_row, column_num):
             )
     except (ValueError, OverflowError):
         pass
-
-
-# # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# def _is_header_row(record_row):
-#     '''Check if the values in record_row appear to be those of a header row.
-#     '''
-#     row_value_list = []
-#     for col_index in COL_INDICES.values():
-#         row_value_list.append(unicode(record_row[col_index].value).strip())
-
-#     # We need a more robust (forgiving) way to watch for
-#     # anomalous headers.
-#         # if [x.value for x in record_row[:3]] != EXPECTED_ROW_0[:3]:
-#         #     err_msg = "Anomalous header value in row %s"
-#         #     print lic
-#         #     print record_row[:3]
-#         #     print err_msg % row_num
-#         #     # raise ValueError(err_msg % row_num)
-#     if len(set(row_value_list).intersection(set(EXPECTED_ROW_0))) > 2:
-#         return True
-#     return False
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
