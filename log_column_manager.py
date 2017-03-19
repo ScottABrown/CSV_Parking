@@ -1,5 +1,15 @@
 '''Manage csv_parking log version and column mapping/meaning.'''
 
+import logging
+# Set default logging handler to avoid "No handler found" warnings.
+try:  # Python 2.7+
+    from logging import NullHandler
+except ImportError:
+    class NullHandler(logging.Handler):
+        '''Placeholder handler.'''
+        def emit(self, record):
+            pass
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 class ColumnManager(object):
@@ -78,13 +88,17 @@ class ColumnManager(object):
         }
 
     # supported_log_versions = version_header_row.keys()
-    header_row_match_threshold = 2
+    header_row_match_threshold = 3
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def __init__(self):
         '''Initialize a ColumnManager instance.'''
 
+        logger_name = '%s.%s' % (__name__, self.__class__.__name__)
+        self._logger = logging.getLogger(logger_name)
+
         self.log_version = None
+        self.header_row_template = None
         self.col_indices = None
 
         # The columns where a date indicates a new log record and
@@ -120,6 +134,7 @@ class ColumnManager(object):
         self.record_type_columns = []
 
         self.log_version = self.determine_log_version(row)
+        self.header_row_template = self.version_header_row[self.log_version]
         self.column_indices = self.version_column_indices[self.log_version]
 
         self.record_type_columns = [
@@ -139,7 +154,6 @@ class ColumnManager(object):
     def license_column(self):
         '''Examine a row and determine what log version we're managing.'''
         return self.column_indices['LIC']
-
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     @staticmethod
@@ -165,30 +179,43 @@ class ColumnManager(object):
         return None
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    @classmethod
-    def is_header_row(cls, row, version=None):
+    def is_header_row(self, row, version=None):
         '''Examine a row and determine if it's a header row.'''
+
+        logger = logging.getLogger(__name__)
 
         # Not sure it's worth the cost here.
         # lower_row = map(lambda x: str(x).lower, row)
 
-        # is_header_row == False
-        for log_version, row_template in (
-                ColumnManager.version_header_row.iteritems()
-                ):  # pylint: disable=bad-continuation
+        if version and version not in ColumnManager.version_header_row:
+            err_msg = 'unknown log version: %s'
+            logger.error(err_msg, version)
+            raise ValueError(err_msg % version)
 
-            if version and (log_version != version):
-                continue
+        if version:
+            row_template = ColumnManager.version_header_row[version]
+        else:
+            row_template = self.header_row_template
 
-            if len(row) != len(row_template):
-                continue
+        # # is_header_row == False
+        # for log_version, row_template in (
+        #         ColumnManager.version_header_row.iteritems()
+        #         ):  # pylint: disable=bad-continuation
 
-            match_count = 0
-            for index, cell in enumerate(row):
-                if unicode(cell.value).strip() == row_template[index]:
-                    match_count += 1
-                if match_count > cls.header_row_match_threshold:
-                    return True
+        #     if version and (log_version != version):
+        #         continue
+
+        # if len(row) != len(row_template):
+        #     continue
+
+        match_count = 0
+        for index, cell in enumerate(row):
+            if index > len(row_template):
+                break
+            if unicode(cell.value).strip() == row_template[index]:
+                match_count += 1
+            if match_count > self.header_row_match_threshold:
+                return True
 
         return False
 
