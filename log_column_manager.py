@@ -23,7 +23,6 @@ class ColumnManager(object):
             "DATE VEHICLE WAS TOWED",
             ]
         }
-    supported_log_versions = version_header_row.keys()
 
     version_column_indices = {
         'CSVPL16.1': {
@@ -78,63 +77,8 @@ class ColumnManager(object):
         'TOWDATE_2': 'street_tow',
         }
 
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    @staticmethod
-    def determine_log_version(row):
-        '''Examine a row and determine what log version we're managing.'''
-
-        for log_version, row_template in (
-                ColumnManager.version_header_row.iteritems()
-                ):  # pylint: disable=bad-continuation
-
-            if len(row) != len(row_template):
-                continue
-
-            matches = True
-            for index, cell in enumerate(row):
-                if cell.value.strip() != row_template[index]:
-                    matches = False
-                    break
-
-            if matches is True:
-                return log_version
-
-        return None
-
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    @staticmethod
-    def is_header_row(row, version=None):
-        '''Examine a row and determine if it's a header row.'''
-
-        # Not sure it's worth the cost here.
-        # lower_row = map(lambda x: str(x).lower, row)
-
-        # is_header_row == False
-        for log_version, row_template in (
-                ColumnManager.version_header_row.iteritems()
-                ):  # pylint: disable=bad-continuation
-
-            if version and (log_version != version):
-                continue
-
-            if len(row) != len(row_template):
-                continue
-
-            for index, cell in enumerate(row):
-                matches = True
-                if cell.value.strip() != row_template[index]:
-                    matches = False
-                    break
-
-            if matches is True:
-                return True
-
-        return False
-
-    # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # @staticmethod
-    # def _is_record_row(row):
-    #     '''Determine if a row contains at least one license log record.'''
+    # supported_log_versions = version_header_row.keys()
+    header_row_match_threshold = 2
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def __init__(self):
@@ -195,3 +139,60 @@ class ColumnManager(object):
     def license_column(self):
         '''Examine a row and determine what log version we're managing.'''
         return self.column_indices['LIC']
+
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    @staticmethod
+    def determine_log_version(row):
+        '''Examine a row and determine what log version we're managing.'''
+
+        for log_version, row_template in (
+                ColumnManager.version_header_row.iteritems()
+                ):  # pylint: disable=bad-continuation
+
+            if len(row) != len(row_template):
+                continue
+
+            matches = True
+            for index, cell in enumerate(row):
+                if cell.value.strip() != row_template[index]:
+                    matches = False
+                    break
+
+            if matches is True:
+                return log_version
+
+        return None
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    @classmethod
+    def is_header_row(cls, row, version=None):
+        '''Examine a row and determine if it's a header row.'''
+
+        # Not sure it's worth the cost here.
+        # lower_row = map(lambda x: str(x).lower, row)
+
+        # is_header_row == False
+        for log_version, row_template in (
+                ColumnManager.version_header_row.iteritems()
+                ):  # pylint: disable=bad-continuation
+
+            if version and (log_version != version):
+                continue
+
+            if len(row) != len(row_template):
+                continue
+
+            match_count = 0
+            for index, cell in enumerate(row):
+                if unicode(cell.value).strip() == row_template[index]:
+                    match_count += 1
+                if match_count > cls.header_row_match_threshold:
+                    return True
+
+        return False
+
+    # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # @staticmethod
+    # def _is_record_row(row):
+    #     '''Determine if a row contains at least one license log record.'''
